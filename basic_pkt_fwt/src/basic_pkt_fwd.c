@@ -86,8 +86,8 @@ volatile bool quit_sig = false; /* 1 -> application terminates without shutting 
 
 /* packets filtering configuration variables */
 static bool fwd_valid_pkt = true; /* packets with PAYLOAD CRC OK are forwarded */
-static bool fwd_error_pkt = true; /* packets with PAYLOAD CRC ERROR are forwarded */
-static bool fwd_nocrc_pkt = true; /* packets with NO PAYLOAD CRC are forwarded */
+static bool fwd_error_pkt = false; /* packets with PAYLOAD CRC ERROR are NOT forwarded */
+static bool fwd_nocrc_pkt = false; /* packets with NO PAYLOAD CRC are NOT forwarded */
 
 /* network configuration variables */
 static uint64_t lgwm = 0; /* Lora gateway MAC address */
@@ -166,43 +166,43 @@ static void sig_handler(int sigio) {
 
 int parse_SX1301_configuration(const char * conf_file) {
 	int i;
-	const char conf_obj[] = "SX1301_conf";
 	char param_name[32]; /* used to generate variable parameter names */
+	const char conf_obj_name[] = "SX1301_conf";
+	JSON_Value *root_val = NULL;
+	JSON_Object *conf_obj = NULL;
+	JSON_Value *val = NULL;
 	struct lgw_conf_rxrf_s rfconf;
 	struct lgw_conf_rxif_s ifconf;
-	JSON_Value *root_val = NULL;
-	JSON_Object *root = NULL;
-	JSON_Object *conf = NULL;
-	JSON_Value *val = NULL;
 	uint32_t sf, bw;
 	
 	/* try to parse JSON */
 	root_val = json_parse_file(conf_file);
-	root = json_value_get_object(root_val);
-	if (root == NULL) {
-		MSG("ERROR: %s id not a valid JSON file\n", conf_file);
+	if (root_val == NULL) {
+		MSG("ERROR: %s is not a valid JSON file\n", conf_file);
 		exit(EXIT_FAILURE);
 	}
-	conf = json_object_get_object(root, conf_obj);
-	if (conf == NULL) {
-		MSG("INFO: %s does not contain a JSON object named %s\n", conf_file, conf_obj);
+	
+	/* point to the gateway configuration object */
+	conf_obj = json_object_get_object(json_value_get_object(root_val), conf_obj_name);
+	if (conf_obj == NULL) {
+		MSG("INFO: %s does not contain a JSON object named %s\n", conf_file, conf_obj_name);
 		return -1;
 	} else {
-		MSG("INFO: %s does contain a JSON object named %s, parsing SX1301 parameters\n", conf_file, conf_obj);
+		MSG("INFO: %s does contain a JSON object named %s, parsing SX1301 parameters\n", conf_file, conf_obj_name);
 	}
 	
 	/* set configuration for RF chains */
 	for (i = 0; i < LGW_RF_CHAIN_NB; ++i) {
 		memset(&rfconf, 0, sizeof rfconf); /* initialize configuration structure */
 		snprintf(param_name, sizeof param_name, "radio_%i", i); /* compose parameter path inside JSON structure */
-		val = json_object_get_value(conf, param_name); /* fetch value (if possible) */
+		val = json_object_get_value(conf_obj, param_name); /* fetch value (if possible) */
 		if (json_value_get_type(val) != JSONObject) {
 			MSG("INFO: no configuration for radio %i\n", i);
 			continue;
 		}
 		/* there is an object to configure that radio, let's parse it */
 		snprintf(param_name, sizeof param_name, "radio_%i.enable", i);
-		val = json_object_dotget_value(conf, param_name);
+		val = json_object_dotget_value(conf_obj, param_name);
 		if (json_value_get_type(val) == JSONBoolean) {
 			rfconf.enable = (bool)json_value_get_boolean(val);
 		} else {
@@ -212,7 +212,7 @@ int parse_SX1301_configuration(const char * conf_file) {
 			MSG("INFO: radio %i disabled\n", i);
 		} else  { /* radio enabled, will parse the other parameters */
 			snprintf(param_name, sizeof param_name, "radio_%i.freq", i);
-			rfconf.freq_hz = (uint32_t)json_object_dotget_number(conf, param_name);
+			rfconf.freq_hz = (uint32_t)json_object_dotget_number(conf_obj, param_name);
 			MSG("INFO: radio %i enabled, center frequency %u\n", i, rfconf.freq_hz);
 		}
 		/* all parameters parsed, submitting configuration to the HAL */
@@ -225,14 +225,14 @@ int parse_SX1301_configuration(const char * conf_file) {
 	for (i = 0; i < LGW_MULTI_NB; ++i) {
 		memset(&ifconf, 0, sizeof ifconf); /* initialize configuration structure */
 		snprintf(param_name, sizeof param_name, "chan_multiSF_%i", i); /* compose parameter path inside JSON structure */
-		val = json_object_get_value(conf, param_name); /* fetch value (if possible) */
+		val = json_object_get_value(conf_obj, param_name); /* fetch value (if possible) */
 		if (json_value_get_type(val) != JSONObject) {
 			MSG("INFO: no configuration for Lora multi-SF channel %i\n", i);
 			continue;
 		}
 		/* there is an object to configure that Lora multi-SF channel, let's parse it */
 		snprintf(param_name, sizeof param_name, "chan_multiSF_%i.enable", i);
-		val = json_object_dotget_value(conf, param_name);
+		val = json_object_dotget_value(conf_obj, param_name);
 		if (json_value_get_type(val) == JSONBoolean) {
 			ifconf.enable = (bool)json_value_get_boolean(val);
 		} else {
@@ -242,9 +242,9 @@ int parse_SX1301_configuration(const char * conf_file) {
 			MSG("INFO: Lora multi-SF channel %i disabled\n", i);
 		} else  { /* Lora multi-SF channel enabled, will parse the other parameters */
 			snprintf(param_name, sizeof param_name, "chan_multiSF_%i.radio", i);
-			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf, param_name);
+			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf_obj, param_name);
 			snprintf(param_name, sizeof param_name, "chan_multiSF_%i.if", i);
-			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf, param_name);
+			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf_obj, param_name);
 			// TODO: handle individual SF enabling and disabling (spread_factor)
 			MSG("INFO: Lora multi-SF channel %i>  radio %i, IF %i Hz, 125 kHz bw, SF 7 to 12\n", i, ifconf.rf_chain, ifconf.freq_hz);
 		}
@@ -256,11 +256,11 @@ int parse_SX1301_configuration(const char * conf_file) {
 	
 	/* set configuration for Lora standard channel */
 	memset(&ifconf, 0, sizeof ifconf); /* initialize configuration structure */
-	val = json_object_get_value(conf, "chan_Lora_std"); /* fetch value (if possible) */
+	val = json_object_get_value(conf_obj, "chan_Lora_std"); /* fetch value (if possible) */
 	if (json_value_get_type(val) != JSONObject) {
 		MSG("INFO: no configuration for Lora standard channel\n");
 	} else {
-		val = json_object_dotget_value(conf, "chan_Lora_std.enable");
+		val = json_object_dotget_value(conf_obj, "chan_Lora_std.enable");
 		if (json_value_get_type(val) == JSONBoolean) {
 			ifconf.enable = (bool)json_value_get_boolean(val);
 		} else {
@@ -269,16 +269,16 @@ int parse_SX1301_configuration(const char * conf_file) {
 		if (ifconf.enable == false) {
 			MSG("INFO: Lora standard channel %i disabled\n", i);
 		} else  {
-			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf, "chan_Lora_std.radio");
-			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf, "chan_Lora_std.if");
-			bw = (uint32_t)json_object_dotget_number(conf, "chan_Lora_std.bandwidth");
+			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf_obj, "chan_Lora_std.radio");
+			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf_obj, "chan_Lora_std.if");
+			bw = (uint32_t)json_object_dotget_number(conf_obj, "chan_Lora_std.bandwidth");
 			switch(bw) {
 				case 500000: ifconf.bandwidth = BW_500KHZ; break;
 				case 250000: ifconf.bandwidth = BW_250KHZ; break;
 				case 125000: ifconf.bandwidth = BW_125KHZ; break;
 				default: ifconf.bandwidth = BW_UNDEFINED;
 			}
-			sf = (uint32_t)json_object_dotget_number(conf, "chan_Lora_std.spread_factor");
+			sf = (uint32_t)json_object_dotget_number(conf_obj, "chan_Lora_std.spread_factor");
 			switch(sf) {
 				case  7: ifconf.datarate = DR_LORA_SF7;  break;
 				case  8: ifconf.datarate = DR_LORA_SF8;  break;
@@ -297,11 +297,11 @@ int parse_SX1301_configuration(const char * conf_file) {
 	
 	/* set configuration for FSK channel */
 	memset(&ifconf, 0, sizeof ifconf); /* initialize configuration structure */
-	val = json_object_get_value(conf, "chan_FSK"); /* fetch value (if possible) */
+	val = json_object_get_value(conf_obj, "chan_FSK"); /* fetch value (if possible) */
 	if (json_value_get_type(val) != JSONObject) {
 		MSG("INFO: no configuration for FSK channel\n");
 	} else {
-		val = json_object_dotget_value(conf, "chan_FSK.enable");
+		val = json_object_dotget_value(conf_obj, "chan_FSK.enable");
 		if (json_value_get_type(val) == JSONBoolean) {
 			ifconf.enable = (bool)json_value_get_boolean(val);
 		} else {
@@ -310,9 +310,9 @@ int parse_SX1301_configuration(const char * conf_file) {
 		if (ifconf.enable == false) {
 			MSG("INFO: FSK channel %i disabled\n", i);
 		} else  {
-			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf, "chan_FSK.radio");
-			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf, "chan_FSK.if");
-			bw = (uint32_t)json_object_dotget_number(conf, "chan_FSK.bandwidth");
+			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.radio");
+			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf_obj, "chan_FSK.if");
+			bw = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.bandwidth");
 			switch(bw) {
 				case 500000: ifconf.bandwidth = BW_500KHZ; break;
 				case 250000: ifconf.bandwidth = BW_250KHZ; break;
@@ -323,7 +323,7 @@ int parse_SX1301_configuration(const char * conf_file) {
 				case   7800: ifconf.bandwidth = BW_7K8HZ;  break;
 				default: ifconf.bandwidth = BW_UNDEFINED;
 			}
-			ifconf.datarate = (uint32_t)json_object_dotget_number(conf, "chan_FSK.datarate");
+			ifconf.datarate = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.datarate");
 			MSG("INFO: FSK channel> radio %i, IF %i Hz, %u Hz bw, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
 		}
 		if (lgw_rxif_setconf(9, ifconf) != LGW_HAL_SUCCESS) {
@@ -359,7 +359,7 @@ int parse_gateway_configuration(const char * conf_file) {
 	}
 	
 	/* gateway unique identifier (aka MAC address) (optional) */
-	str = json_object_dotget_string(conf_obj, "gateway_ID");
+	str = json_object_get_string(conf_obj, "gateway_ID");
 	if (str != NULL) {
 		sscanf(str, "%llx", &ull);
 		lgwm = ull;
@@ -367,45 +367,63 @@ int parse_gateway_configuration(const char * conf_file) {
 	}
 	
 	/* server hostname or IP address (optional) */
-	str = json_object_dotget_string(conf_obj, "server_address");
+	str = json_object_get_string(conf_obj, "server_address");
 	if (str != NULL) {
 		strncpy(serv_addr, str, sizeof serv_addr);
 		MSG("INFO: server hostname or IP address is configured to \"%s\"\n", serv_addr);
 	}
 	
 	/* get up and down ports (optional) */
-	val = json_object_dotget_value(conf_obj, "serv_port_up");
+	val = json_object_get_value(conf_obj, "serv_port_up");
 	if (val != NULL) {
 		snprintf(serv_port_up, sizeof serv_port_up, "%u", (uint16_t)json_value_get_number(val));
 		MSG("INFO: upstream port is configured to \"%s\"\n", serv_port_up);
 	}
-	val = json_object_dotget_value(conf_obj, "serv_port_down");
+	val = json_object_get_value(conf_obj, "serv_port_down");
 	if (val != NULL) {
 		snprintf(serv_port_down, sizeof serv_port_down, "%u", (uint16_t)json_value_get_number(val));
 		MSG("INFO: downstream port is configured to \"%s\"\n", serv_port_down);
 	}
 	
 	/* get keep-alive interval (in seconds) for downstream (optional) */
-	val = json_object_dotget_value(conf_obj, "keepalive_interval");
+	val = json_object_get_value(conf_obj, "keepalive_interval");
 	if (val != NULL) {
 		keepalive_time = (int)json_value_get_number(val);
 		MSG("INFO: downstream keep-alive interval is configured to %u seconds\n", keepalive_time);
 	}
 	
 	/* get interval (in seconds) for statistics display (optional) */
-	val = json_object_dotget_value(conf_obj, "stat_interval");
+	val = json_object_get_value(conf_obj, "stat_interval");
 	if (val != NULL) {
 		stat_interval.tv_sec = (time_t)json_value_get_number(val);
 		MSG("INFO: statistics display interval is configured to %u seconds\n", (unsigned)(stat_interval.tv_sec));
 	}
 	
 	/* get time-out value (in ms) for upstream datagrams (optional) */
-	val = json_object_dotget_value(conf_obj, "push_timeout_ms");
+	val = json_object_get_value(conf_obj, "push_timeout_ms");
 	if (val != NULL) {
 		push_timeout_half.tv_usec = 500 * (long int)json_value_get_number(val);
 		MSG("INFO: upstream PUSH_DATA time-out is configured to %u ms\n", (unsigned)(push_timeout_half.tv_usec / 500));
 	}
 	
+	/* packet filtering parameters */
+	val = json_object_get_value(conf_obj, "forward_crc_valid");
+	if (json_value_get_type(val) == JSONBoolean) {
+		fwd_valid_pkt = (bool)json_value_get_boolean(val);
+	}
+	MSG("INFO: packets received with a valid CRC will%s be forwarded\n", (fwd_valid_pkt ? "" : " NOT"));
+	val = json_object_get_value(conf_obj, "forward_crc_error");
+	if (json_value_get_type(val) == JSONBoolean) {
+		fwd_error_pkt = (bool)json_value_get_boolean(val);
+	}
+	MSG("INFO: packets received with a CRC error will%s be forwarded\n", (fwd_error_pkt ? "" : " NOT"));
+	val = json_object_get_value(conf_obj, "forward_crc_disabled");
+	if (json_value_get_type(val) == JSONBoolean) {
+		fwd_nocrc_pkt = (bool)json_value_get_boolean(val);
+	}
+	MSG("INFO: packets received with no CRC will%s be forwarded\n", (fwd_nocrc_pkt ? "" : " NOT"));
+	
+	/* free JSON parsing data structure */
 	json_value_free(root_val);
 	return 0;
 }
@@ -704,7 +722,7 @@ int main(void)
 
 void thread_up(void) {
 	int i, j; /* loop variables */
-	int pkt_in_dgram; /* nb on Lora packet in the current datagram */
+	unsigned pkt_in_dgram; /* nb on Lora packet in the current datagram */
 	
 	/* allocate memory for packet fetching and processing */
 	struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX]; /* array containing inbound packets + metadata */
@@ -823,7 +841,7 @@ void thread_up(void) {
 			buff_index += 36;
 			
 			/* RAW timestamp (until GPS is ready) */
-			j = snprintf((char *)(buff_up + buff_index),20 , ",\"tmst\":%010u", p->count_us);
+			j = snprintf((char *)(buff_up + buff_index),20 , ",\"tmst\":%u", p->count_us);
 			if ((j>=0) && (j < 20)) {
 				buff_index += j;
 			} else {
@@ -982,6 +1000,11 @@ void thread_up(void) {
 			++pkt_in_dgram;
 		}
 		
+		/* restart fetch sequence without sending empty JSON if all packets have been filtered out */
+		if (pkt_in_dgram == 0) {
+			continue;
+		}
+		
 		/* end of JSON datagram payload */
 		buff_up[buff_index] = ']';
 		buff_up[buff_index + 1] = '}';
@@ -994,7 +1017,7 @@ void thread_up(void) {
 		meas_up_network_byte += buff_index;
 		
 		/* wait for acknowledge (in 2 times, to catch extra packets) */
-		for(i=0; i<2; ++i) {
+		for (i=0; i<2; ++i) {
 			j = recv(sock_up, (void *)buff_ack, sizeof buff_ack, 0);
 			if (j == -1) {
 				if (errno == EAGAIN) { /* timeout */

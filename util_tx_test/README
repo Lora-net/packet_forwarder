@@ -3,7 +3,7 @@
 	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
 	 _____) ) ____| | | || |_| ____( (___| | | |
 	(______/|_____)_|_|_| \__)_____)\____)_| |_|
-		©2013 Semtech-Cycleo
+	  (C)2013 Semtech-Cycleo
 
 Utility: network packet sender
 ===============================
@@ -59,9 +59,3 @@ The packets are 20 bytes long, and protected by the smallest supported ECC.
 The payload content is:
 [T][E][S][T][10's decimal digit of the packet counter in ASCII][unit decimal 
 digit of the packet counter in ASCII] followed by ASCII padding.
-
-4. Changelog
--------------
-
-2013-11-22, v1.0
-Initial version of the network packet sender.

@@ -3,7 +3,7 @@
 	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
 	 _____) ) ____| | | || |_| ____( (___| | | |
 	(______/|_____)_|_|_| \__)_____)\____)_| |_|
-		©2013 Semtech-Cycleo
+	  (C)2013 Semtech-Cycleo
 
 Lora Gateway basic packet forwarder
 ====================================
@@ -21,19 +21,19 @@ please read the PROTOCOL.TXT document.
 2. System schematic and definitions
 ------------------------------------
 
- ((( Y )))
-     |
-     |
- +-----------------------------+        xxxxxxxxxxxx          +--------+
- |+--------------+     +------+|       xx x  x     xxx        |        |
- ||              |     |      ||      xx  Internet  xx        |        |
- || Concentrator |<----+ Host |<------xx     or    xx-------->|        |
- ||              | SPI |      ||      xx  Intranet  xx        | Server |
- |+--------------+     +------+|       xxxx   x   xxxx        |        |
- |                             |           xxxxxxxx           |        |
- |            Gateway          |                              |        |
- +-----------------------------+                              +--------+
- 
+	((( Y )))
+	    |
+	    |
+	+- -|- - - - - - - - - - - - -+        xxxxxxxxxxxx          +--------+
+	|+--+-----------+     +------+|       xx x  x     xxx        |        |
+	||              |     |      ||      xx  Internet  xx        |        |
+	|| Concentrator |<----+ Host |<------xx     or    xx-------->|        |
+	||              | SPI |      ||      xx  Intranet  xx        | Server |
+	|+--------------+     +------+|       xxxx   x   xxxx        |        |
+	|                             |           xxxxxxxx           |        |
+	|            Gateway          |                              |        |
+	+- - - - - - - - - - - - - - -+                              +--------+
+
 Concentrator: radio RX/TX board, based on Semtech multichannel modems (SX130x), 
 transceivers (SX135x) and/or low-power stand-alone modems (SX127x).
 
@@ -102,9 +102,3 @@ files and the libloragw API documentation.
 Every X seconds (parameter settable in the configuration files) the program 
 display statistics on the RF packets received and sent, and the network 
 datagrams received and sent.
-
-5. Changelog
--------------
-
-2013-11-22, v1.0
-Initial version of the packet forwarder.

@@ -3,10 +3,10 @@
 APP_NAME=util_sink
 
 ### constant symbols
-
+CROSS_COMPILE=
 CC=gcc
 CFLAGS=-O2 -Wall -Wextra -Iinc
-C99FLAGS=-O2 -Wall -Wextra -Iinc -std=c99
+C99FLAGS=-O2 -Wall -Wextra -std=c99 -Iinc
 FLAG_AUX=
 
 ### general build targets
@@ -20,7 +20,7 @@ clean:
 ### main program compilation and assembly
 
 obj/$(APP_NAME).o: src/$(APP_NAME).c 
-	$(CC) -c $(C99FLAGS) -o obj/$(APP_NAME).o src/$(APP_NAME).c $(FLAG_AUX)
+	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) -o obj/$(APP_NAME).o src/$(APP_NAME).c $(FLAG_AUX)
 
 $(APP_NAME): obj/$(APP_NAME).o
-	$(CC) -o $(APP_NAME) obj/$(APP_NAME).o
+	$(CROSS_COMPILE)$(CC) -o $(APP_NAME) obj/$(APP_NAME).o

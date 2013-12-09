@@ -3,7 +3,7 @@
 	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
 	 _____) ) ____| | | || |_| ____( (___| | | |
 	(______/|_____)_|_|_| \__)_____)\____)_| |_|
-		©2013 Semtech-Cycleo
+	  (C)2013 Semtech-Cycleo
 
 Utility: packet sink
 =====================
@@ -29,9 +29,3 @@ None.
 Start the program with the port number as first and only argument.
 
 To stop the application, press Ctrl+C.
-
-4. Changelog
--------------
-
-2013-11-22, v1.0
-Initial version of the packet sink.

@@ -47,6 +47,9 @@
 		"serv_port_down": 1782,
 		"keepalive_interval": 12,
 		"stat_interval": 20,
-		"push_timeout_ms": 120
+		"push_timeout_ms": 120,
+		"forward_crc_valid": true,
+		"forward_crc_error": false,
+		"forward_crc_disabled": false
 	}
 }
