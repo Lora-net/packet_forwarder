@@ -984,7 +984,7 @@ void thread_up(void) {
 			/* Packet base64-encoded payload */
 			memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
 			buff_index += 9;
-			j = bin_to_b64_nopad(p->payload, p->size, (char *)(buff_up + buff_index), 340);
+			j = bin_to_b64_nopad(p->payload, p->size, (char *)(buff_up + buff_index), 341); /* 255 bytes = 340 chars in b64 + null char */
 			if (j>=0) {
 				buff_index += j;
 			} else {
