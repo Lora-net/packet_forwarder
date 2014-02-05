@@ -291,7 +291,7 @@ int b64_to_bin(const char * in, int size, uint8_t * out, int max_len) {
 		DEBUG("ERROR: NULL POINTER AS OUTPUT OR INPUT IN B64_TO_BIN\n");
 		return -1;
 	}
-	if ((size%4 != 0) && (size >= 4)) { /* potentially padded Base64 */
+	if ((size%4 == 0) && (size >= 4)) { /* potentially padded Base64 */
 		if (in[size-2] == code_pad) { /* 2 padding char to ignore */
 			return b64_to_bin_nopad(in, size-2, out, max_len);
 		} else if (in[size-1] == code_pad) { /* 1 padding char to ignore */

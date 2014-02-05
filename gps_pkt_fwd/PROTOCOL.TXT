@@ -30,15 +30,24 @@ losses (no retries).
 	|| Concentrator |<----+ Host |<------xx     or    xx-------->|        |
 	||              | SPI |      ||      xx  Intranet  xx        | Server |
 	|+--------------+     +------+|       xxxx   x   xxxx        |        |
-	|                             |           xxxxxxxx           |        |
-	|            Gateway          |                              |        |
-	+- - - - - - - - - - - - - - -+                              +--------+
+	|   ^                    ^    |           xxxxxxxx           |        |
+	|   | PPS +-------+ NMEA |    |                              |        |
+	|   +-----|  GPS  |------+    |                              +--------+
+	|         | (opt) |           |
+	|         +-------+           |
+	|                             |
+	|            Gateway          |
+	+- - - - - - - - - - - - - - -+
 
 __Concentrator__: radio RX/TX board, based on Semtech multichannel modems 
 (SX130x), transceivers (SX135x) and/or low-power stand-alone modems (SX127x). 
 
 __Host__: embedded computer on which the packet forwarder is run. Drives the 
 concentrator through a SPI link.
+
+__GPS__: GNSS (GPS, Galileo, GLONASS, etc) receiver with a "1 Pulse Per Second"
+output and a serial link to the host to send NMEA frames containing time and
+geographical coordinates data. Optional.
 
 __Gateway__: a device composed of at least one radio concentrator, a host, some 
 network connection to the internet or a private network (Ethernet, 3G, Wifi, 
@@ -103,7 +112,7 @@ PUSH_DATA packets received.
 4. Upstream JSON data structure
 --------------------------------
 
-The root object must contain an array named "rxpk":
+The root object can contain an array named "rxpk":
 
 ```json
 {
@@ -116,7 +125,7 @@ and associated metadata with the following fields:
 
  Name |  Type  | Function
 :----:|:------:|--------------------------------------------------------------
- time | string | UTC time of packet reception, us precision, ISO 8601 format
+ time | string | UTC time of pkt RX, us precision, ISO 8601 'compact' format
  tmst | number | Internal timestamp of "RX finished" event (32b unsigned)
  freq | number | RX central frequency in MHz (unsigned float, Hz precision)
  chan | number | Concentrator "IF" channel used for RX (unsigned integer)
@@ -128,43 +137,90 @@ and associated metadata with the following fields:
  rssi | number | RSSI in dBm (signed integer, 1 dB precision)
  lsnr | number | Lora SNR ratio in dB (signed float, 0.1 dB precision)
  size | number | RF packet payload size in bytes (unsigned integer)
- data | string | Base64 encoded RF packet payload, no padding
+ data | string | Base64 encoded RF packet payload, padded
 
 Example (white-spaces, indentation and newlines added for readability):
 
 ```json
+"rxpk":[
+	{
+		"time":"2013-03-31T16:21:17.528002Z",
+		"tmst":3512348611,
+		"chan":2,
+		"rfch":0,
+		"freq":866.349812,
+		"stat":1,
+		"modu":"LORA",
+		"datr":"SF7BW125",
+		"codr":"4/6",
+		"rssi":-35,
+		"lsnr":5.1,
+		"size":32,
+		"data":"-DS4CGaDCdG+48eJNM3Vai-zDpsR71Pn9CPA9uCON84"
+	},{
+		"time":"2013-03-31T16:21:17.532038Z",
+		"tmst":3316387610,
+		"chan":0,
+		"rfch":0,
+		"freq":863.00981,
+		"stat":1,
+		"modu":"LORA",
+		"datr":"SF10BW125",
+		"codr":"4/7",
+		"rssi":-38,
+		"lsnr":5.5,
+		"size":32,
+		"data":"ysgRl452xNLep9S1NTIg2lomKDxUgn3DJ7DE+b00Ass"
+	}
+]
+```
+
+The root object can also contain an object named "stat" :
+
+```json
 {
-	"rxpk":[
-		{
-			"time":"2013-03-31T16:21:17.528002Z",
-			"tmst":3512348611,
-			"chan":2,
-			"rfch":0,
-			"freq":866.349812,
-			"stat":1,
-			"modu":"LORA",
-			"datr":"SF7BW125",
-			"codr":"4/6",
-			"rssi":-35,
-			"lsnr":5.1,
-			"size":32,
-			"data":"-DS4CGaDCdG+48eJNM3Vai-zDpsR71Pn9CPA9uCON84"
-		},{
-			"time":"2013-03-31T16:21:17.532038Z",
-			"tmst":3316387610,
-			"chan":0,
-			"rfch":0,
-			"freq":863.00981,
-			"stat":1,
-			"modu":"LORA",
-			"datr":"SF10BW125",
-			"codr":"4/7",
-			"rssi":-38,
-			"lsnr":5.5,
-			"size":32,
-			"data":"ysgRl452xNLep9S1NTIg2lomKDxUgn3DJ7DE+b00Ass"
-		}
-	]
+	"rxpk":[ {...}, ...],
+	"stat":{...}
+}
+```
+
+It is possible for a packet to contain no "rxpk" array but a "stat" object.
+
+```json
+{
+	"stat":{...}
+}
+```
+
+That object contains the status of the gateway, with the following fields:
+
+ Name |  Type  | Function
+:----:|:------:|--------------------------------------------------------------
+ time | string | UTC 'system' time of the gateway, ISO 8601 'expanded' format
+ lati | number | GPS latitude of the gateway in degree (float, N is +)
+ long | number | GPS latitude of the gateway in degree (float, E is +)
+ alti | number | GPS altitude of the gateway in meter RX (integer)
+ rxnb | number | Number or radio packets received (unsigned integer)
+ rxok | number | Number or radio packets received with a valid PHY CRC
+ rxfw | number | Number of radio packets forwarded (unsigned integer)
+ ackr | number | Percentage of upstream datagrams that were acknowledged
+ dwnb | number | Number of downlink datagrams received (unsigned integer)
+ txnb | number | Number of packets emitted (unsigned integer)
+
+Example (white-spaces, indentation and newlines added for readability):
+
+```json
+"stat":{
+	"time":"2014-01-12 08:59:28 GMT",
+	"lati":46.24000,
+	"long":3.25230,
+	"alti":145,
+	"rxnb":2,
+	"rxok":2,
+	"rxfw":2,
+	"ackr":100.0,
+	"dwnb":2,
+	"txnb":2
 }
 ```
 
@@ -268,7 +324,8 @@ That object contain a RF packet to be emitted and associated metadata with the f
  ipol | bool   | Lora modulation polarization inversion
  prea | number | RF preamble size (unsigned integer)
  size | number | RF packet payload size in bytes (unsigned integer)
- data | string | Base64 encoded RF packet payload, no padding
+ data | string | Base64 encoded RF packet payload, padding optional
+ ncrc | bool   | If true, disable the CRC of the physical layer (optional)
 
 Most fields are optional.
 If a field is omitted, default parameters will be used.
@@ -276,18 +333,16 @@ If a field is omitted, default parameters will be used.
 Example (white-spaces, indentation and newlines added for readability):
 
 ```json
-{
-	"txpk":{
-		"imme":true,
-		"freq":864.123456,
-		"rfch":0,
-		"powe":14,
-		"modu":"LORA",
-		"datr":"SF11BW125",
-		"codr":"4/6",
-		"ipol":false,
-		"size":32,
-		"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
-	}
+"txpk":{
+	"imme":true,
+	"freq":864.123456,
+	"rfch":0,
+	"powe":14,
+	"modu":"LORA",
+	"datr":"SF11BW125",
+	"codr":"4/6",
+	"ipol":false,
+	"size":32,
+	"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
 }
 ```

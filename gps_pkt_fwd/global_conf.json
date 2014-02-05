@@ -5,44 +5,44 @@
 			"freq": 868200000
 		},
 		"chan_multiSF_0": {
+            /* Lora MAC channel, 125kHz, all SF, 868.1 MHz */
 			"enable": true,
 			"radio": 0,
-			"if": -100000,
-			"note": "Lora MAC channel, 125kHz, all SF, 868.1 MHz"
+			"if": -100000
 		},
 		"chan_multiSF_1": {
+            /* Lora MAC channel, 125kHz, all SF, 868.3 MHz */
 			"enable": true,
 			"radio": 0,
-			"if": 100000,
-			"note": "Lora MAC channel, 125kHz, all SF, 868.3 MHz"
+			"if": 100000
 		},
 		"chan_multiSF_2": {
+            /* Lora MAC channel, 125kHz, all SF, 868.5 MHz */
 			"enable": true,
 			"radio": 0,
-			"if": 300000,
-			"note": "Lora MAC channel, 125kHz, all SF, 868.5 MHz"
+			"if": 300000
 		},
 		"chan_Lora_std": {
+            /* Lora MAC channel, 250kHz, SF7, 868.3 MHz */
 			"enable": true,
 			"radio": 0,
 			"if": 100000,
 			"bandwidth": 250000,
-			"spread_factor": 7,
-			"note": "Lora MAC channel, 250kHz, SF7, 868.3 MHz"
+			"spread_factor": 7
 		},
 		
 		"chan_FSK": {
+            /* FSK 100kbps channel, 868.3 MHz */
 			"enable": true,
 			"radio": 0,
 			"if": 100000,
 			"bandwidth": 250000,
-			"datarate": 100000,
-			"note": "FSK 100kbps channel, 868.3 MHz"
+			"datarate": 100000
 		}
 	},
 	"gateway_conf": {
 		"gateway_ID": "AA555A0000000000",
-		"server_address": "127.0.0.1",
+		"server_address": "127.0.0.1", // adapt to your environment, there or in local_conf.json
 		"serv_port_up": 1780,
 		"serv_port_down": 1782,
 		"keepalive_interval": 12,
@@ -50,6 +50,7 @@
 		"push_timeout_ms": 120,
 		"forward_crc_valid": true,
 		"forward_crc_error": false,
-		"forward_crc_disabled": false
+		"forward_crc_disabled": false,
+		"gps_tty_path": "/dev/ttyACM0"
 	}
 }
