@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Base64 encoding & decoding library
@@ -286,30 +286,21 @@ int bin_to_b64(const uint8_t * in, int size, char * out, int max_len) {
 	}
 }
 
-int b64_to_bin(char * in, int size, uint8_t * out, int max_len) {
+int b64_to_bin(const char * in, int size, uint8_t * out, int max_len) {
 	if (in == NULL) {
 		DEBUG("ERROR: NULL POINTER AS OUTPUT OR INPUT IN B64_TO_BIN\n");
 		return -1;
 	}
-	if (size%4 != 0) {
-		DEBUG("ERROR: padded Base64 string length must be a multiple of 4\n");
-		return -1;
-	}
-	if (size > 0) {
-		if (in[size-2] == code_pad) {
-			/* 2 padding char to remove */
-			in[size-2] = 0;
+	if ((size%4 == 0) && (size >= 4)) { /* potentially padded Base64 */
+		if (in[size-2] == code_pad) { /* 2 padding char to ignore */
 			return b64_to_bin_nopad(in, size-2, out, max_len);
-		} else if (in[size-1] == code_pad) {
-			/* 1 padding char to remove */
-			in[size-1] = 0;
+		} else if (in[size-1] == code_pad) { /* 1 padding char to ignore */
 			return b64_to_bin_nopad(in, size-1, out, max_len);
-		} else {
-			/* no padding to remove */
+		} else { /* no padding to ignore */
 			return b64_to_bin_nopad(in, size, out, max_len);
 		}
-	} else {
-		return 0;
+	} else { /* treat as unpadded Base64 */
+		return b64_to_bin_nopad(in, size, out, max_len);
 	}
 }
 

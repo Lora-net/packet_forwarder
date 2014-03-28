@@ -5,15 +5,17 @@
 	(______/|_____)_|_|_| \__)_____)\____)_| |_|
 	  (C)2013 Semtech-Cycleo
 
-Lora Gateway basic packet forwarder
-====================================
+Lora Gateway packet forwarder with beacon extension
+=====================================================
 
 1. Introduction
 ----------------
 
-The basic packet forwarder is a program running on the host of a Lora Gateway 
-that forward RF packets receive by the concentrator to a server through a 
-IP/UDP link, and emits RF packets that are sent by the server.
+The beaconing packet forwarder is a program running on the host of a Lora 
+Gateway that forward RF packets receive by the concentrator to a server 
+through a IP/UDP link, and emits RF packets that are sent by the server. It 
+also emits a network-wide GPS-synchronous beacon signal used for coordinating 
+all the nodes of the network.
 
 To learn more about the network protocol between the gateway and the server, 
 please read the PROTOCOL.TXT document.
@@ -30,9 +32,13 @@ please read the PROTOCOL.TXT document.
 	|| Concentrator |<----+ Host |<------xx     or    xx-------->|        |
 	||              | SPI |      ||      xx  Intranet  xx        | Server |
 	|+--------------+     +------+|       xxxx   x   xxxx        |        |
-	|                             |           xxxxxxxx           |        |
-	|            Gateway          |                              |        |
-	+- - - - - - - - - - - - - - -+                              +--------+
+	|   ^                    ^    |           xxxxxxxx           |        |
+	|   | PPS  +-----+  NMEA |    |                              |        |
+	|   +------| GPS |-------+    |                              +--------+
+	|          +-----+            |
+	|                             |
+	|            Gateway          |
+	+- - - - - - - - - - - - - - -+
 
 Concentrator: radio RX/TX board, based on Semtech multichannel modems (SX130x), 
 transceivers (SX135x) and/or low-power stand-alone modems (SX127x).
@@ -63,7 +69,7 @@ Data structures of the received packets are accessed by name (ie. not at a
 binary level) so new functionalities can be added to the API without affecting
 that program at all.
 
-This program follows the v1.0 version of the gateway-to-server protocol.
+This program follows the v1.1 version of the gateway-to-server protocol.
 
 The last dependency is the hardware concentrator (based on FPGA or SX130x 
 chips) that must be matched with the proper version of the HAL.
@@ -104,9 +110,7 @@ files and the libloragw API documentation.
 Every X seconds (parameter settable in the configuration files) the program 
 display statistics on the RF packets received and sent, and the network 
 datagrams received and sent.
-
-This basic variant of the packet forwarder doesn't send status report to the
-server.
+The program also send some statistics to the server in JSON format.
 
 5. License
 -----------

@@ -1,0 +1,86 @@
+{
+	"SX1301_conf": {
+		/* depending on board configuration, you may have 1 or 2 radios, with 1 or 2 antenna ports */
+		"radio_0": {
+			"enable": false,
+			"freq": 0
+		},
+		"radio_1": {
+			"enable": false,
+			"freq": 0
+		},
+		
+		/* 'multi' Lora channels car receive Lora packets with a BW of 125 kHz, and any SF is automatically recognized and demodulated */
+		/* Note: chan_multiSF_3 to 7 are not available on the FPGA version */
+		"chan_multiSF_0": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_1": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_2": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_3": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_4": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_5": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_6": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_7": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		
+		/* the 'stand-alone' Lora modem can receive emissions with BW 125, 250 or 500 kHz, on a specific SF */
+		"chan_Lora_std": {
+			"enable": false,
+			"radio": 0,
+			"if": 0,
+			"bandwidth": 250000,
+			"spread_factor": 7
+		},
+		
+		/* 'high speed' FSK channel, use for radio backhaul, or for maintenance, remote update, etc */
+		"chan_FSK": {
+			"enable": false,
+			"radio": 0,
+			"if": 100000,
+			"bandwidth": 250000,
+			"datarate": 100000
+		}
+	},
+	"gateway_conf": {
+		// "gateway_ID": "AA555A0000000000",	// default ID (hexadecimal string)
+		// "server_address": "127.0.0.1",		// Lora network server hostname or IPv4 address
+		// "serv_port_up": 1780,				// default server port for 'upstream' traffic
+		// "serv_port_down": 1782,				// default server port for 'downstream' traffic
+		// "keepalive_interval": 12,			// every X seconds, a PULL_REQ is sent to keep downstream route alive
+		// "stat_interval": 20,					// every X seconds, a status report is displayed on screen
+		// "push_timeout_ms": 120,				// time in ms the program will wait for an ACK on upstream traffic
+		// "forward_crc_valid": true,			// configure if certain types of packets are forwarded or ignored
+		// "forward_crc_error": false,			// configure if certain types of packets are forwarded or ignored
+		// "forward_crc_disabled": false		// configure if certain types of packets are forwarded or ignored
+	}
+}

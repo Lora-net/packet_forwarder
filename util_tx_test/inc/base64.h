@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Base64 encoding & decoding library
@@ -55,7 +55,7 @@ int bin_to_b64(const uint8_t * in, int size, char * out, int max_len);
 /**
 @brief Decode Base64 string to binary data (remove padding if necessary)
 */
-int b64_to_bin(char * in, int size, uint8_t * out, int max_len);
+int b64_to_bin(const char * in, int size, uint8_t * out, int max_len);
 
 #endif
 

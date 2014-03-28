@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Network sink, receives UDP packets and sends an acknowledge
@@ -164,12 +164,12 @@ int main(int argc, char **argv)
 		/* interpret gateway command */
 		switch (databuf[3]) {
 			case PKT_PUSH_DATA:
-				printf(", PUSH_DATA from gateway 0x%016llX\n", gw_mac);
+				printf(", PUSH_DATA from gateway 0x%08X%08X\n", (uint32_t)(gw_mac >> 32), (uint32_t)(gw_mac & 0xFFFFFFFF));
 				ack_command = PKT_PUSH_ACK;
 				printf("<-  pkt out, PUSH_ACK for host %s (port %s)", host_name, port_name);
 				break;
 			case PKT_PULL_DATA:
-				printf(", PULL_DATA from gateway 0x%016llX\n", gw_mac);
+				printf(", PULL_DATA from gateway 0x%08X%08X\n", (uint32_t)(gw_mac >> 32), (uint32_t)(gw_mac & 0xFFFFFFFF));
 				ack_command = PKT_PULL_ACK;
 				printf("<-  pkt out, PULL_ACK for host %s (port %s)", host_name, port_name);
 				break;

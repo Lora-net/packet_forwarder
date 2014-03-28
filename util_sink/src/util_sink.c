@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Network sink, receives UDP packets on certain ports and discards them

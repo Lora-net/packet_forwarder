@@ -1,15 +1,15 @@
 ### Application-specific constants
 
-APP_NAME=util_tx_test
+APP_NAME := util_tx_test
 
-### constant symbols
-CROSS_COMPILE=
-CC=gcc
-CFLAGS=-O2 -Wall -Wextra -Iinc
-C99FLAGS=-O2 -Wall -Wextra -std=c99 -Iinc
-FLAG_AUX=
+### Constant symbols
 
-### general build targets
+CC := $(CROSS_COMPILE)gcc
+AR := $(CROSS_COMPILE)ar
+
+CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
+
+### General build targets
 
 all: $(APP_NAME)
 
@@ -17,15 +17,17 @@ clean:
 	rm -f obj/*.o
 	rm -f $(APP_NAME)
 
-### sub-modules compilation
+### Sub-modules compilation
 
-obj/base64.o: src/base64.c 
-	$(CROSS_COMPILE)$(CC) -c $(CFLAGS) -o obj/base64.o src/base64.c $(FLAG_AUX)
+obj/base64.o: src/base64.c inc/base64.h
+	$(CC) -c $(CFLAGS) $< -o $@
 
-### main program compilation and assembly
+### Main program compilation and assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c 
-	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) -o obj/$(APP_NAME).o src/$(APP_NAME).c $(FLAG_AUX)
+obj/$(APP_NAME).o: src/$(APP_NAME).c inc/base64.h
+	$(CC) -c $(CFLAGS) $< -o $@
 
-$(APP_NAME): obj/$(APP_NAME).o obj/base64.o
-	$(CROSS_COMPILE)$(CC) -o $(APP_NAME) obj/$(APP_NAME).o obj/base64.o
+$(APP_NAME): obj/$(APP_NAME).o  obj/base64.o
+	$(CC) $<  obj/base64.o -o $@
+
+### EOF

@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Ask a gateway to emit packets using GW <-> server protocol
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
 		MSG("ERROR: getnameinfo returned %s \n", gai_strerror(i));
 		exit(EXIT_FAILURE);
 	}
-	MSG("INFO: PULL_DATA request received from gateway 0x%016llX (host %s, port %s)\n", gw_mac, host_name, port_name);
+	MSG("INFO: PULL_DATA request received from gateway 0x%08X%08X (host %s, port %s)\n", (uint32_t)(gw_mac >> 32), (uint32_t)(gw_mac & 0xFFFFFFFF), host_name, port_name);
 	
 	/* PKT_PULL_RESP datagrams header */
 	databuf[0] = PROTOCOL_VERSION;

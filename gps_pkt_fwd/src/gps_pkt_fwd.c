@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Configure Lora concentrator and forward packets to a server
@@ -14,8 +14,6 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 Maintainer: Sylvain Miermont
 */
 
-
-#define	VERSION_STRING	"1.2.0"
 
 /* -------------------------------------------------------------------------- */
 /* --- DEPENDANCIES --------------------------------------------------------- */
@@ -33,7 +31,7 @@ Maintainer: Sylvain Miermont
 
 #include <string.h>		/* memset */
 #include <signal.h>		/* sigaction */
-#include <time.h>		/* time, clock_gettime, strftime, gmtime, clock_nanosleep*/
+#include <time.h>		/* time, clock_gettime, strftime, gmtime */
 #include <sys/time.h>	/* timeval */
 #include <unistd.h>		/* getopt, access */
 #include <stdlib.h>		/* atoi, exit */
@@ -51,6 +49,7 @@ Maintainer: Sylvain Miermont
 #include "base64.h"
 #include "loragw_hal.h"
 #include "loragw_gps.h"
+#include "loragw_aux.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
@@ -64,14 +63,19 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
+#ifndef VERSION_STRING
+  #define VERSION_STRING "undefined"
+#endif
+
 #define	DEFAULT_SERVER		127.0.0.1 /* hostname also supported */
 #define	DEFAULT_PORT_UP		1780
 #define	DEFAULT_PORT_DW		1782
-#define DEFAULT_KEEPALIVE	5
-#define DEFAULT_STAT		30
+#define DEFAULT_KEEPALIVE	5	/* default time interval for downstream keep-alive packet */
+#define DEFAULT_STAT		30	/* default time interval for statistics */
 #define PUSH_TIMEOUT_MS		100
-#define PULL_TIMEOUT_MS		500
-#define GPS_REF_MAX_AGE		60 /* maximum admitted delay in seconds of GPS loss before considering latest GPS sync unusable */
+#define PULL_TIMEOUT_MS		200
+#define GPS_REF_MAX_AGE		30	/* maximum admitted delay in seconds of GPS loss before considering latest GPS sync unusable */
+#define FETCH_SLEEP_MS		10	/* nb of ms waited when a fetch return no packets */
 
 #define	PROTOCOL_VERSION	1
 
@@ -105,7 +109,7 @@ static char serv_port_down[8] = STR(DEFAULT_PORT_DW); /* server port for downstr
 static int keepalive_time = DEFAULT_KEEPALIVE; /* send a PULL_DATA request every X seconds, negative = disabled */
 
 /* statistics collection configuration variables */
-static struct timespec stat_interval = {DEFAULT_STAT, 0}; /* time interval at which statistics are collected and displayed */
+static unsigned stat_interval = DEFAULT_STAT; /* time interval (in sec) at which statistics are collected and displayed */
 
 /* gateway <-> MAC protocol variables */
 static uint32_t net_mac_h; /* Most Significant Nibble, network order */
@@ -119,10 +123,7 @@ static int sock_down; /* socket for downstream traffic */
 static struct timeval push_timeout_half = {0, (PUSH_TIMEOUT_MS * 500)}; /* cut in half, critical for throughput */
 static struct timeval pull_timeout = {0, (PULL_TIMEOUT_MS * 1000)}; /* non critical for throughput */
 
-/* threads and mutexes */
-static pthread_t thrid_up;
-static pthread_t thrid_down;
-static pthread_t thrid_gps;
+/* hardware access control and correction */
 static pthread_mutex_t mx_concent = PTHREAD_MUTEX_INITIALIZER; /* control access to the concentrator */
 
 /* GPS configuration and synchronization */
@@ -135,12 +136,13 @@ static pthread_mutex_t mx_timeref = PTHREAD_MUTEX_INITIALIZER; /* control access
 static bool gps_ref_valid; /* is GPS reference acceptable (ie. not too old) */
 static struct tref time_reference_gps; /* time reference used for UTC <-> timestamp conversion */
 
+/* Reference coordinates, to send in status instead of GPS coordiantes if 'fake' is enabled */
+static struct coord_s reference_coord;
+
 /* Enable faking the GPS coordinates of the gateway */
 static bool gps_fake_enable; /* enable the feature */
-static struct coord_s fake_gps_coord; /* coordinates set in configuration file */
 
 /* measurements to establish statistics */
-// TODO: add ping measurement
 static pthread_mutex_t mx_meas_up = PTHREAD_MUTEX_INITIALIZER; /* control access to the upstream measurements */
 static uint32_t meas_nb_rx_rcv = 0; /* count packets received */
 static uint32_t meas_nb_rx_ok = 0; /* count packets received with PAYLOAD CRC OK */
@@ -183,6 +185,7 @@ int parse_gateway_configuration(const char * conf_file);
 void thread_up(void);
 void thread_down(void);
 void thread_gps(void);
+void thread_valid(void);
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */
@@ -425,8 +428,8 @@ int parse_gateway_configuration(const char * conf_file) {
 	/* get interval (in seconds) for statistics display (optional) */
 	val = json_object_get_value(conf_obj, "stat_interval");
 	if (val != NULL) {
-		stat_interval.tv_sec = (time_t)json_value_get_number(val);
-		MSG("INFO: statistics display interval is configured to %u seconds\n", (unsigned)(stat_interval.tv_sec));
+		stat_interval = (unsigned)json_value_get_number(val);
+		MSG("INFO: statistics display interval is configured to %u seconds\n", stat_interval);
 	}
 	
 	/* get time-out value (in ms) for upstream datagrams (optional) */
@@ -460,15 +463,32 @@ int parse_gateway_configuration(const char * conf_file) {
 		MSG("INFO: GPS serial port path is configured to \"%s\"\n", gps_tty_path);
 	}
 	
+	/* get reference coordinates */
+	val = json_object_get_value(conf_obj, "ref_latitude");
+	if (val != NULL) {
+		reference_coord.lat = (double)json_value_get_number(val);
+		MSG("INFO: Reference latitude is configured to %f deg\n", reference_coord.lat);
+	}
+	val = json_object_get_value(conf_obj, "ref_longitude");
+	if (val != NULL) {
+		reference_coord.lon = (double)json_value_get_number(val);
+		MSG("INFO: Reference longitude is configured to %f deg\n", reference_coord.lon);
+	}
+	val = json_object_get_value(conf_obj, "ref_altitude");
+	if (val != NULL) {
+		reference_coord.alt = (short)json_value_get_number(val);
+		MSG("INFO: Reference altitude is configured to %i meters\n", reference_coord.alt);
+	}
+	
 	/* Gateway GPS coordinates hardcoding (aka. faking) option */
 	val = json_object_get_value(conf_obj, "fake_gps");
 	if (json_value_get_type(val) == JSONBoolean) {
 		gps_fake_enable = (bool)json_value_get_boolean(val);
-	}
-	if (gps_fake_enable == true) {
-		fake_gps_coord.lat = json_object_get_number(conf_obj, "fake_latitude");
-		fake_gps_coord.lon = json_object_get_number(conf_obj, "fake_longitude");
-		fake_gps_coord.alt = json_object_get_number(conf_obj, "fake_altitude");
+		if (gps_fake_enable == true) {
+			MSG("INFO: fake GPS is enabled\n");
+		} else {
+			MSG("INFO: fake GPS is disabled\n");
+		}
 	}
 
 	/* free JSON parsing data structure */
@@ -489,15 +509,18 @@ int main(void)
 	char *local_cfg_path = "local_conf.json"; /* contain node specific configuration, overwrite global parameters for parameters that are defined in both */
 	char *debug_cfg_path = "debug_conf.json"; /* if present, all other configuration files are ignored */
 	
+	/* threads */
+	pthread_t thrid_up;
+	pthread_t thrid_down;
+	pthread_t thrid_gps;
+	pthread_t thrid_valid;
+	
 	/* network socket creation */
 	struct addrinfo hints;
 	struct addrinfo *result; /* store result of getaddrinfo */
 	struct addrinfo *q; /* pointer to move into *result data */
 	char host_name[64];
 	char port_name[64];
-	
-	/* GPS reference validation variables */
-	long gps_ref_age = 0;
 	
 	/* variables to get local copies of measurements */
 	uint32_t cp_nb_rx_rcv;
@@ -532,8 +555,8 @@ int main(void)
 	float dw_ack_ratio;
 	
 	/* display version informations */
-	MSG("*** Basic Packet Forwarder for Lora Gateway ***\nVersion: " VERSION_STRING "\n");
-	MSG("Lora concentrator HAL library version info:\n%s\n***\n", lgw_version_info());
+	MSG("*** GPS Packet Forwarder for Lora Gateway ***\nVersion: " VERSION_STRING "\n");
+	MSG("*** Lora concentrator HAL library version info ***\n%s\n***\n", lgw_version_info());
 	
 	/* display host endianness */
 	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -583,6 +606,9 @@ int main(void)
 	
 	/* get timezone info */
 	tzset();
+	
+	/* sanity check on configuration variables */
+	// TODO
 	
 	/* process some of the configuration variables */
 	net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
@@ -685,6 +711,11 @@ int main(void)
 			MSG("ERROR: [main] impossible to create GPS thread\n");
 			exit(EXIT_FAILURE);
 		}
+		i = pthread_create( &thrid_valid, NULL, (void * (*)(void *))thread_valid, NULL);
+		if (i != 0) {
+			MSG("ERROR: [main] impossible to create validation thread\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 	
 	/* configure signal handling */
@@ -695,26 +726,14 @@ int main(void)
 	sigaction(SIGINT, &sigact, NULL); /* Ctrl-C */
 	sigaction(SIGTERM, &sigact, NULL); /* default "kill" command */
 	
-	/* main loop task : statistics collection (and GPS periodic validation) */
+	/* main loop task : statistics collection */
 	while (!exit_sig && !quit_sig) {
 		/* wait for next reporting interval */
-		clock_nanosleep(CLOCK_MONOTONIC, 0, &stat_interval, NULL);
+		wait_ms(1000 * stat_interval);
 		
 		/* get timestamp for statistics */
 		t = time(NULL);
 		strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
-		
-		/* check validity of GPS reference */
-		if (gps_enabled == true) {
-			pthread_mutex_lock(&mx_timeref);
-			gps_ref_age = (long)difftime(t, time_reference_gps.systime);
-			if ((gps_ref_age >= 0) && (gps_ref_age <= GPS_REF_MAX_AGE)) {
-				gps_ref_valid = true;
-			} else {
-				gps_ref_valid = false;
-			}
-			pthread_mutex_unlock(&mx_timeref);
-		}
 		
 		/* access upstream statistics, copy and reset them */
 		pthread_mutex_lock(&mx_meas_up);
@@ -784,11 +803,11 @@ int main(void)
 			pthread_mutex_unlock(&mx_meas_gps);
 		}
 		
-		/* overwrite with fake coordinates if function is enabled */
+		/* overwrite with reference coordinates if function is enabled */
 		if (gps_fake_enable == true) {
 			gps_enabled = true;
 			coord_ok = true;
-			cp_gps_coord = fake_gps_coord;
+			cp_gps_coord = reference_coord;
 		}
 		
 		/* display a report */
@@ -806,11 +825,11 @@ int main(void)
 		printf("# TX errors: %u\n", cp_nb_tx_fail);
 		printf("### [GPS] ###\n");
 		if (gps_enabled == true) {
-			/* no need for mutex, the main thread is the only writer for gps_ref_valid & gps_ref_age */
+			/* no need for mutex, display is not critical */
 			if (gps_ref_valid == true) {
-				printf("# Valid time reference (age: %li sec)\n", gps_ref_age);
+				printf("# Valid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
 			} else {
-				printf("# Invalid time reference (age: %li sec)\n", gps_ref_age);
+				printf("# Invalid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
 			}
 			if (gps_fake_enable == true) {
 				printf("# GPS *FAKE* coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
@@ -838,7 +857,8 @@ int main(void)
 	/* wait for upstream thread to finish (1 fetch cycle max) */
 	pthread_join(thrid_up, NULL);
 	pthread_cancel(thrid_down); /* don't wait for downstream thread */
-	pthread_cancel(thrid_gps); /* don't wait for gps thread */
+	pthread_cancel(thrid_gps); /* don't wait for GPS thread */
+	pthread_cancel(thrid_valid); /* don't wait for validation thread */
 	
 	/* if an exit signal was received, try to quit properly */
 	if (exit_sig) {
@@ -869,7 +889,6 @@ void thread_up(void) {
 	struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX]; /* array containing inbound packets + metadata */
 	struct lgw_pkt_rx_s *p; /* pointer on a RX packet */
 	int nb_pkt;
-	const struct timespec fetch_sleep = {0, 10000000}; /* 10 ms */
 	
 	/* local copy of GPS time reference */
 	bool ref_ok = false; /* determine if GPS time reference must be used or not */
@@ -921,7 +940,7 @@ void thread_up(void) {
 		
 		/* wait a short time if no packets, nor status report */
 		if ((nb_pkt == 0) && (send_report == false)) {
-			clock_nanosleep(CLOCK_MONOTONIC, 0, &fetch_sleep, NULL);
+			wait_ms(FETCH_SLEEP_MS);
 			continue;
 		}
 		
@@ -1327,6 +1346,8 @@ void thread_down(void) {
 			
 			/* try to receive a datagram */
 			msg_len = recv(sock_down, (void *)buff_down, (sizeof buff_down)-1, 0);
+			
+			/* if no network message was received, got back to listening sock_down socket */
 			if (msg_len == -1) {
 				//MSG("WARNING: [down] recv returned %s\n", strerror(errno)); /* too verbose */
 				continue;
@@ -1669,6 +1690,7 @@ void thread_gps(void) {
 		latest_msg = lgw_parse_nmea(serial_buff, sizeof(serial_buff));
 		
 		if (latest_msg == NMEA_RMC) { /* trigger sync only on RMC frames */
+			
 			/* get UTC time for synchronization */
 			i = lgw_gps_get(&utc_time, NULL, NULL);
 			if (i != LGW_GPS_SUCCESS) {
@@ -1688,13 +1710,10 @@ void thread_gps(void) {
 			/* try to update time reference with the new UTC & timestamp */
 			pthread_mutex_lock(&mx_timeref);
 			i = lgw_gps_sync(&time_reference_gps, trig_tstamp, utc_time);
+			pthread_mutex_unlock(&mx_timeref);
 			if (i != LGW_GPS_SUCCESS) {
-				pthread_mutex_unlock(&mx_timeref);
-				MSG("WARNING: [gps] GPS out of sync, will retry later\n");
+				MSG("WARNING: [gps] GPS out of sync, keeping previous time reference\n");
 				continue;
-			} else {
-				gps_ref_valid = true;
-				pthread_mutex_unlock(&mx_timeref);
 			}
 			
 			/* update gateway coordinates */
@@ -1712,6 +1731,34 @@ void thread_gps(void) {
 		}
 	}
 	MSG("\nINFO: End of GPS thread\n");
+}
+
+/* -------------------------------------------------------------------------- */
+/* --- THREAD 4: CHECK TIME REFERENCE AND CALCULATE XTAL CORRECTION --------- */
+
+void thread_valid(void) {
+	
+	/* GPS reference validation variables */
+	long gps_ref_age = 0;
+	
+	/* main loop task */
+	while (!exit_sig && !quit_sig) {
+		wait_ms(1000);
+		
+		/* calculate when the time reference was last updated */
+		pthread_mutex_lock(&mx_timeref);
+		gps_ref_age = (long)difftime(time(NULL), time_reference_gps.systime);
+		if ((gps_ref_age >= 0) && (gps_ref_age <= GPS_REF_MAX_AGE)) {
+			/* time ref is ok, validate and  */
+			gps_ref_valid = true;
+		} else {
+			/* time ref is too old, invalidate */
+			gps_ref_valid = false;
+		}
+		pthread_mutex_unlock(&mx_timeref);
+		
+	}
+	MSG("\nINFO: End of validation thread\n");
 }
 
 /* --- EOF ------------------------------------------------------------------ */

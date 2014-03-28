@@ -200,8 +200,8 @@ That object contains the status of the gateway, with the following fields:
  lati | number | GPS latitude of the gateway in degree (float, N is +)
  long | number | GPS latitude of the gateway in degree (float, E is +)
  alti | number | GPS altitude of the gateway in meter RX (integer)
- rxnb | number | Number or radio packets received (unsigned integer)
- rxok | number | Number or radio packets received with a valid PHY CRC
+ rxnb | number | Number of radio packets received (unsigned integer)
+ rxok | number | Number of radio packets received with a valid PHY CRC
  rxfw | number | Number of radio packets forwarded (unsigned integer)
  ackr | number | Percentage of upstream datagrams that were acknowledged
  dwnb | number | Number of downlink datagrams received (unsigned integer)
@@ -316,7 +316,7 @@ That object contain a RF packet to be emitted and associated metadata with the f
  tmst | number | Send packet on a certain timestamp value (will ignore time)
  time | string | Send packet at a certain time (GPS synchronization required)
  freq | number | TX central frequency in MHz (unsigned float, Hz precision)
- rfch | number | Concentrator "RF chain" used for RX (unsigned integer)
+ rfch | number | Concentrator "RF chain" used for TX (unsigned integer)
  powe | number | TX output power in dBm (unsigned integer, dBm precision)
  modu | string | Modulation identifier "LORA" or "FSK"
  datr | string | Datarate identifier (eg. SF12BW500 for Lora)
@@ -346,3 +346,16 @@ Example (white-spaces, indentation and newlines added for readability):
 	"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
 }
 ```
+
+7. Revisions
+-------------
+
+### v1.1 ###
+
+* Added syntax for status report JSON object on upstream.
+
+### v1.0 ###
+
+* Initial version.
+
+*EOF*
