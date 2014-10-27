@@ -64,9 +64,9 @@ Maintainer: Sylvain Miermont
   #define VERSION_STRING "undefined"
 #endif
 
-#define	DEFAULT_SERVER		127.0.0.1 /* hostname also supported */
-#define	DEFAULT_PORT_UP		1780
-#define	DEFAULT_PORT_DW		1782
+#define DEFAULT_SERVER		127.0.0.1 /* hostname also supported */
+#define DEFAULT_PORT_UP		1780
+#define DEFAULT_PORT_DW		1782
 #define DEFAULT_KEEPALIVE	5	/* default time interval for downstream keep-alive packet */
 #define DEFAULT_STAT		30	/* default time interval for statistics */
 #define PUSH_TIMEOUT_MS		100
@@ -81,9 +81,14 @@ Maintainer: Sylvain Miermont
 #define PKT_PULL_RESP	3
 #define PKT_PULL_ACK	4
 
-#define	NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
+#define NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
 
 #define MIN_LORA_PREAMB	6 /* minimum Lora preamble length for this application */
+#define STD_LORA_PREAMB	8
+#define MIN_FSK_PREAMB	3 /* minimum FSK preamble length for this application */
+#define STD_FSK_PREAMB	4
+
+#define TX_BUFF_SIZE	((540 * NB_PKT_MAX) + 30)
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES (GLOBAL) ------------------------------------------- */
@@ -143,14 +148,19 @@ static uint32_t meas_dw_payload_byte = 0; /* sum of radio payload bytes sent for
 static uint32_t meas_nb_tx_ok = 0; /* count packets emitted successfully */
 static uint32_t meas_nb_tx_fail = 0; /* count packets were TX failed for other reasons */
 
+/* auto-quit function */
+static uint32_t autoquit_threshold = 0; /* enable auto-quit after a number of non-acknowledged PULL_DATA (0 = disabled)*/
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
 
 static void sig_handler(int sigio);
 
-int parse_SX1301_configuration(const char * conf_file);
+static int parse_SX1301_configuration(const char * conf_file);
 
-int parse_gateway_configuration(const char * conf_file);
+static int parse_gateway_configuration(const char * conf_file);
+
+static double difftimespec(struct timespec end, struct timespec beginning);
 
 /* threads */
 void thread_up(void);
@@ -168,7 +178,7 @@ static void sig_handler(int sigio) {
 	return;
 }
 
-int parse_SX1301_configuration(const char * conf_file) {
+static int parse_SX1301_configuration(const char * conf_file) {
 	int i;
 	char param_name[32]; /* used to generate variable parameter names */
 	const char conf_obj_name[] = "SX1301_conf";
@@ -177,7 +187,7 @@ int parse_SX1301_configuration(const char * conf_file) {
 	JSON_Value *val = NULL;
 	struct lgw_conf_rxrf_s rfconf;
 	struct lgw_conf_rxif_s ifconf;
-	uint32_t sf, bw;
+	uint32_t sf, bw, fdev;
 	
 	/* try to parse JSON */
 	root_val = json_parse_file_with_comments(conf_file);
@@ -317,7 +327,15 @@ int parse_SX1301_configuration(const char * conf_file) {
 			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.radio");
 			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf_obj, "chan_FSK.if");
 			bw = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.bandwidth");
-			if      (bw <= 7800)   ifconf.bandwidth = BW_7K8HZ;
+			fdev = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.freq_deviation");
+			ifconf.datarate = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.datarate");
+			
+			/* if chan_FSK.bandwidth is set, it has priority over chan_FSK.freq_deviation */
+			if ((bw == 0) && (fdev != 0)) {
+				bw = 2 * fdev + ifconf.datarate;
+			}
+			if      (bw == 0)      ifconf.bandwidth = BW_UNDEFINED;
+			else if (bw <= 7800)   ifconf.bandwidth = BW_7K8HZ;
 			else if (bw <= 15600)  ifconf.bandwidth = BW_15K6HZ;
 			else if (bw <= 31200)  ifconf.bandwidth = BW_31K2HZ;
 			else if (bw <= 62500)  ifconf.bandwidth = BW_62K5HZ;
@@ -325,7 +343,7 @@ int parse_SX1301_configuration(const char * conf_file) {
 			else if (bw <= 250000) ifconf.bandwidth = BW_250KHZ;
 			else if (bw <= 500000) ifconf.bandwidth = BW_500KHZ;
 			else ifconf.bandwidth = BW_UNDEFINED;
-			ifconf.datarate = (uint32_t)json_object_dotget_number(conf_obj, "chan_FSK.datarate");
+			
 			MSG("INFO: FSK channel> radio %i, IF %i Hz, %u Hz bw, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
 		}
 		if (lgw_rxif_setconf(9, ifconf) != LGW_HAL_SUCCESS) {
@@ -336,7 +354,7 @@ int parse_SX1301_configuration(const char * conf_file) {
 	return 0;
 }
 
-int parse_gateway_configuration(const char * conf_file) {
+static int parse_gateway_configuration(const char * conf_file) {
 	const char conf_obj_name[] = "gateway_conf";
 	JSON_Value *root_val;
 	JSON_Object *conf_obj = NULL;
@@ -425,9 +443,25 @@ int parse_gateway_configuration(const char * conf_file) {
 	}
 	MSG("INFO: packets received with no CRC will%s be forwarded\n", (fwd_nocrc_pkt ? "" : " NOT"));
 	
+	/* Auto-quit threshold (optional) */
+	val = json_object_get_value(conf_obj, "autoquit_threshold");
+	if (val != NULL) {
+		autoquit_threshold = (uint32_t)json_value_get_number(val);
+		MSG("INFO: Auto-quit after %u non-acknowledged PULL_DATA\n", autoquit_threshold);
+	}
+	
 	/* free JSON parsing data structure */
 	json_value_free(root_val);
 	return 0;
+}
+
+static double difftimespec(struct timespec end, struct timespec beginning) {
+	double x;
+	
+	x = 1E-9 * (double)(end.tv_nsec - beginning.tv_nsec);
+	x += (double)(end.tv_sec - beginning.tv_sec);
+	
+	return x;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -748,13 +782,17 @@ void thread_up(void) {
 	char fetch_timestamp[28]; /* timestamp as a text string */
 	
 	/* data buffers */
-	uint8_t buff_up[5000]; /* buffer to compose the upstream packet */
+	uint8_t buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
 	int buff_index;
 	uint8_t buff_ack[32]; /* buffer to receive acknowledges */
 	
 	/* protocol variables */
 	uint8_t token_h; /* random token for acknowledgement matching */
 	uint8_t token_l; /* random token for acknowledgement matching */
+	
+	/* ping measurement variables */
+	struct timespec send_time;
+	struct timespec recv_time;
 	
 	/* set upstream socket RX timeout */
 	i = setsockopt(sock_up, SOL_SOCKET, SO_RCVTIMEO, (void *)&push_timeout_half, sizeof push_timeout_half);
@@ -849,30 +887,30 @@ void thread_up(void) {
 				buff_index += 2;
 			}
 			
-			/* RAW timestamp */
-			j = snprintf((char *)(buff_up + buff_index),19 , "\"tmst\":%u", p->count_us);
-			if ((j>=0) && (j < 19)) {
+			/* RAW timestamp, 8-17 useful chars */
+			j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, "\"tmst\":%u", p->count_us);
+			if (j > 0) {
 				buff_index += j;
 			} else {
 				MSG("ERROR: [up] snprintf failed line %u\n", (__LINE__ - 4));
 				exit(EXIT_FAILURE);
 			}
 			
-			/* Packet RX time (system time based) */
+			/* Packet RX time (system time based), 37 useful chars */
 			memcpy((void *)(buff_up + buff_index), (void *)",\"time\":\"???????????????????????????\"", 37);
 			memcpy((void *)(buff_up + buff_index + 9), (void *)fetch_timestamp, 27);
 			buff_index += 37;
 			
-			/* Packet concentrator channel, RF chain & RX frequency */
-			j = snprintf((char *)(buff_up + buff_index),39 , ",\"chan\":%1u,\"rfch\":%1u,\"freq\":%.6lf", p->if_chain, p->rf_chain, ((double)p->freq_hz / 1e6));
-			if ((j>=0) && (j < 39)) {
+			/* Packet concentrator channel, RF chain & RX frequency, 34-36 useful chars */
+			j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"chan\":%1u,\"rfch\":%1u,\"freq\":%.6lf", p->if_chain, p->rf_chain, ((double)p->freq_hz / 1e6));
+			if (j > 0) {
 				buff_index += j;
 			} else {
 				MSG("ERROR: [up] snprintf failed line %u\n", (__LINE__ - 4));
 				exit(EXIT_FAILURE);
 			}
 			
-			/* Packet status */
+			/* Packet status, 9-10 useful chars */
 			switch (p->status) {
 				case STAT_CRC_OK:
 					memcpy((void *)(buff_up + buff_index), (void *)",\"stat\":1", 9);
@@ -893,12 +931,12 @@ void thread_up(void) {
 					exit(EXIT_FAILURE);
 			}
 			
-			/* Packet modulation */
+			/* Packet modulation, 13-14 useful chars */
 			if (p->modulation == MOD_LORA) {
 				memcpy((void *)(buff_up + buff_index), (void *)",\"modu\":\"LORA\"", 14);
 				buff_index += 14;
 				
-				/* Lora datarate & bandwidth*/
+				/* Lora datarate & bandwidth, 16-19 useful chars */
 				switch (p->datarate) {
 					case DR_LORA_SF7:
 						memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF7", 12);
@@ -950,7 +988,7 @@ void thread_up(void) {
 						exit(EXIT_FAILURE);
 				}
 				
-				/* Packet ECC coding rate */
+				/* Packet ECC coding rate, 11-13 useful chars */
 				switch (p->coderate) {
 					case CR_LORA_4_5:
 						memcpy((void *)(buff_up + buff_index), (void *)",\"codr\":\"4/5\"", 13);
@@ -979,9 +1017,9 @@ void thread_up(void) {
 						exit(EXIT_FAILURE);
 				}
 				
-				/* Lora SNR */
-				j = snprintf((char *)(buff_up + buff_index), 14, ",\"lsnr\":%.1f", p->snr);
-				if ((j>=0) && (j < 14)) {
+				/* Lora SNR, 11-13 useful chars */
+				j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"lsnr\":%.1f", p->snr);
+				if (j > 0) {
 					buff_index += j;
 				} else {
 					MSG("ERROR: [up] snprintf failed line %u\n", (__LINE__ - 4));
@@ -991,22 +1029,29 @@ void thread_up(void) {
 				memcpy((void *)(buff_up + buff_index), (void *)",\"modu\":\"FSK\"", 13);
 				buff_index += 13;
 				
-				// TODO: add datarate metadata
+				/* FSK datarate, 11-14 useful chars */
+				j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"datr\":%u", p->datarate);
+				if (j > 0) {
+					buff_index += j;
+				} else {
+					MSG("ERROR: [up] snprintf failed line %u\n", (__LINE__ - 4));
+					exit(EXIT_FAILURE);
+				}
 			} else {
 				MSG("ERROR: [up] received packet with unknown modulation\n");
 				exit(EXIT_FAILURE);
 			}
 			
-			/* Packet RSSI, payload size */
-			j = snprintf((char *)(buff_up + buff_index), 23, ",\"rssi\":%.0f,\"size\":%u", p->rssi, p->size);
-			if ((j>=0) && (j < 23)) {
+			/* Packet RSSI, payload size, 18-23 useful chars */
+			j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"rssi\":%.0f,\"size\":%u", p->rssi, p->size);
+			if (j > 0) {
 				buff_index += j;
 			} else {
 				MSG("ERROR: [up] snprintf failed line %u\n", (__LINE__ - 4));
 				exit(EXIT_FAILURE);
 			}
 			
-			/* Packet base64-encoded payload */
+			/* Packet base64-encoded payload, 14-350 useful chars */
 			memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
 			buff_index += 9;
 			j = bin_to_b64(p->payload, p->size, (char *)(buff_up + buff_index), 341); /* 255 bytes = 340 chars in b64 + null char */
@@ -1043,6 +1088,7 @@ void thread_up(void) {
 		
 		/* send datagram to server */
 		send(sock_up, (void *)buff_up, buff_index, 0);
+		clock_gettime(CLOCK_MONOTONIC, &send_time);
 		pthread_mutex_lock(&mx_meas_up);
 		meas_up_dgram_sent += 1;
 		meas_up_network_byte += buff_index;
@@ -1050,6 +1096,7 @@ void thread_up(void) {
 		/* wait for acknowledge (in 2 times, to catch extra packets) */
 		for (i=0; i<2; ++i) {
 			j = recv(sock_up, (void *)buff_ack, sizeof buff_ack, 0);
+			clock_gettime(CLOCK_MONOTONIC, &recv_time);
 			if (j == -1) {
 				if (errno == EAGAIN) { /* timeout */
 					continue;
@@ -1063,7 +1110,7 @@ void thread_up(void) {
 				//MSG("WARNING: [up] ignored out-of sync ACK packet\n");
 				continue;
 			} else {
-				//MSG("INFO: [up] ACK received :)\n"); /* too verbose */
+				MSG("INFO: [up] PUSH_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
 				meas_up_ack_rcv += 1;
 				break;
 			}
@@ -1084,8 +1131,8 @@ void thread_down(void) {
 	bool sent_immediate = false; /* option to sent the packet immediately */
 	
 	/* local timekeeping variables */
-	time_t now; /* current time, with second accuracy */
-	time_t requ_time; /* time of the pull request, low-res OK */
+	struct timespec send_time; /* time of the pull request */
+	struct timespec recv_time; /* time of return from recv socket call */
 	
 	/* data buffers */
 	uint8_t buff_down[1000]; /* buffer to receive downstream packets */
@@ -1104,6 +1151,9 @@ void thread_down(void) {
 	const char *str; /* pointer to sub-strings in the JSON data */
 	short x0, x1;
 	
+	/* auto-quit variable */
+	uint32_t autoquit_cnt = 0; /* count the number of PULL_DATA sent since the latest PULL_ACK */
+	
 	/* set downstream socket RX timeout */
 	i = setsockopt(sock_down, SOL_SOCKET, SO_RCVTIMEO, (void *)&pull_timeout, sizeof pull_timeout);
 	if (i != 0) {
@@ -1118,6 +1168,14 @@ void thread_down(void) {
 	*(uint32_t *)(buff_req + 8) = net_mac_l;
 	
 	while (!exit_sig && !quit_sig) {
+		
+		/* auto-quit if the threshold is crossed */
+		if ((autoquit_threshold > 0) && (autoquit_cnt >= autoquit_threshold)) {
+			exit_sig = true;
+			MSG("INFO: [down] the last %u PULL_DATA were not ACKed, exiting application\n", autoquit_threshold);
+			break;
+		}
+		
 		/* generate random token for request */
 		token_h = (uint8_t)rand(); /* random token */
 		token_l = (uint8_t)rand(); /* random token */
@@ -1126,16 +1184,20 @@ void thread_down(void) {
 		
 		/* send PULL request and record time */
 		send(sock_down, (void *)buff_req, sizeof buff_req, 0);
+		clock_gettime(CLOCK_MONOTONIC, &send_time);
 		pthread_mutex_lock(&mx_meas_dw);
 		meas_dw_pull_sent += 1;
 		pthread_mutex_unlock(&mx_meas_dw);
 		req_ack = false;
+		autoquit_cnt++;
 		
 		/* listen to packets and process them until a new PULL request must be sent */
-		for (time(&requ_time); (int)difftime(now, requ_time) < keepalive_time; time(&now)) {
+		recv_time = send_time;
+		while ((int)difftimespec(recv_time, send_time) < keepalive_time) {
 			
 			/* try to receive a datagram */
 			msg_len = recv(sock_down, (void *)buff_down, (sizeof buff_down)-1, 0);
+			clock_gettime(CLOCK_MONOTONIC, &recv_time);
 			
 			/* if no network message was received, got back to listening sock_down socket */
 			if (msg_len == -1) {
@@ -1156,10 +1218,11 @@ void thread_down(void) {
 						MSG("INFO: [down] duplicate ACK received :)\n");
 					} else { /* if that packet was not already acknowledged */
 						req_ack = true;
+						autoquit_cnt = 0;
 						pthread_mutex_lock(&mx_meas_dw);
 						meas_dw_ack_rcv += 1;
 						pthread_mutex_unlock(&mx_meas_dw);
-						MSG("INFO: [down] ACK received :)\n"); /* very verbose */
+						MSG("INFO: [down] PULL_ACK received in %i ms\n", (int)(1000 * difftimespec(recv_time, send_time)));
 					}
 				} else { /* out-of-sync token */
 					MSG("INFO: [down] received out-of-sync ACK\n");
@@ -1319,24 +1382,44 @@ void thread_down(void) {
 						txpkt.preamble = (uint16_t)MIN_LORA_PREAMB;
 					}
 				} else {
-					txpkt.preamble = (uint16_t)MIN_LORA_PREAMB;
+					txpkt.preamble = (uint16_t)STD_LORA_PREAMB;
 				}
 				
 			} else if (strcmp(str, "FSK") == 0) {
 				/* FSK modulation */
 				txpkt.modulation = MOD_FSK;
 				
-				// TODO
-				MSG("WARNING: [down] FSK modulation not supported yet, TX aborted\n");
-				json_value_free(root_val);
-				continue;
+				/* parse FSK bitrate (mandatory) */
+				val = json_object_get_value(txpk_obj,"datr");
+				if (val == NULL) {
+					MSG("WARNING: [down] no mandatory \"txpk.datr\" object in JSON, TX aborted\n");
+					json_value_free(root_val);
+					continue;
+				}
+				txpkt.datarate = (uint32_t)(json_value_get_number(val));
 				
-				/* parse TX preamble length (optional field) */
-				//val = json_object_get_value(txpk_obj,"prea");
-				//if (val != NULL) {
-				//	txpkt.preamble = (uint16_t)json_value_get_number(val);
-				//}
-				
+				/* parse frequency deviation (mandatory) */
+				val = json_object_get_value(txpk_obj,"fdev");
+				if (val == NULL) {
+					MSG("WARNING: [down] no mandatory \"txpk.fdev\" object in JSON, TX aborted\n");
+					json_value_free(root_val);
+					continue;
+				}
+				txpkt.f_dev = (uint8_t)(json_value_get_number(val));
+					
+				/* parse FSK preamble length (optional field, optimum min value enforced) */
+				val = json_object_get_value(txpk_obj,"prea");
+				if (val != NULL) {
+					i = (int)json_value_get_number(val);
+					if (i >= MIN_FSK_PREAMB) {
+						txpkt.preamble = (uint16_t)i;
+					} else {
+						txpkt.preamble = (uint16_t)MIN_FSK_PREAMB;
+					}
+				} else {
+					txpkt.preamble = (uint16_t)STD_FSK_PREAMB;
+				}
+			
 			} else {
 				MSG("WARNING: [down] invalid modulation in \"txpk.modu\", TX aborted\n");
 				json_value_free(root_val);

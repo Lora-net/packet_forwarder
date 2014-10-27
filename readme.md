@@ -75,6 +75,15 @@ through the gateway-to-server downlink route.
 4. Changelog
 -------------
 
+### v1.4.0 - 2014-10-16 ###
+
+* Feature: Adding TX FSK support.
+* Feature: optional auto-quit if a certain number of PULL_ACK is missed.
+* Feature: upstream and downstream ping time is displayed on console.
+* Bugfix: some beacons were missed at high beaconing frequency.
+* Bugfix: critical snprintf error caused a crash for long payloads.
+* FSK bitrate now appears in the upstream JSON.
+
 ### v1.3.0 - 2014-03-28 ###
 
 * Feature: adding preliminary beacon support for class B development.

@@ -1,3 +1,4 @@
+	  ______                              _
 	 / _____)             _              | |    
 	( (____  _____ ____ _| |_ _____  ____| |__  
 	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
@@ -7,6 +8,7 @@
 
 Basic communication protocol between Lora gateway and server
 =============================================================
+
 
 1. Introduction
 ----------------
@@ -18,26 +20,27 @@ There is no authentication of the gateway or the server, and the acknowledges
 are only used for network quality assessment, not to correct UDP datagrams 
 losses (no retries).
 
+
 2. System schematic and definitions
 ------------------------------------
 
-	((( Y )))
-	    |
-	    |
-	+- -|- - - - - - - - - - - - -+        xxxxxxxxxxxx          +--------+
-	|+--+-----------+     +------+|       xx x  x     xxx        |        |
-	||              |     |      ||      xx  Internet  xx        |        |
-	|| Concentrator |<----+ Host |<------xx     or    xx-------->|        |
-	||              | SPI |      ||      xx  Intranet  xx        | Server |
-	|+--------------+     +------+|       xxxx   x   xxxx        |        |
-	|   ^                    ^    |           xxxxxxxx           |        |
-	|   | PPS +-------+ NMEA |    |                              |        |
-	|   +-----|  GPS  |------+    |                              +--------+
-	|         | (opt) |           |
-	|         +-------+           |
-	|                             |
-	|            Gateway          |
-	+- - - - - - - - - - - - - - -+
+	 ((( Y )))
+	     |
+	     |
+	+ - -|- - - - - - - - - - - - - +        xxxxxxxxxxxx          +--------+
+	| +--+-----------+     +------+ |       xx x  x     xxx        |        |
+	| |              |     |      | |      xx  Internet  xx        |        |
+	| | Concentrator |<--->| Host |<-------xx     or    xx-------->|        |
+	| |              | SPI |      | |      xx  Intranet  xx        | Server |
+	| +--------------+     +------+ |       xxxx   x   xxxx        |        |
+	|    ^                     ^    |           xxxxxxxx           |        |
+	|    | PPS +-------+ NMEA  |    |                              |        |
+	|    +-----|  GPS  |-------+    |                              +--------+
+	|          | (opt) |            |
+	|          +-------+            |
+	|                               |
+	|             Gateway           |
+	+- - - - - - - - - - - - - - - -+
 
 __Concentrator__: radio RX/TX board, based on Semtech multichannel modems 
 (SX130x), transceivers (SX135x) and/or low-power stand-alone modems (SX127x). 
@@ -62,6 +65,7 @@ incoming connection.
 It is assumed that the server has an static IP address (or an address solvable 
 through a DNS service) and is able to receive incoming connections on a 
 specific port.
+
 
 3. Upstream protocol
 ---------------------
@@ -109,12 +113,13 @@ PUSH_DATA packets received.
  1-2    | same token as the PUSH_DATA packet to acknowledge
  3      | PUSH_ACK identifier 0x01
 
+
 4. Upstream JSON data structure
 --------------------------------
 
 The root object can contain an array named "rxpk":
 
-```json
+``` json
 {
 	"rxpk":[ {...}, ...]
 }
@@ -132,8 +137,9 @@ and associated metadata with the following fields:
  rfch | number | Concentrator "RF chain" used for RX (unsigned integer)
  stat | number | CRC status: 1 = OK, -1 = fail, 0 = no CRC
  modu | string | Modulation identifier "LORA" or "FSK"
- datr | string | Datarate identifier (eg. SF12BW500 for Lora)
- codr | string | ECC coding rate identifier
+ datr | string | LoRa datarate identifier (eg. SF12BW500)
+ datr | number | FSK datarate (unsigned, in bits per second)
+ codr | string | LoRa ECC coding rate identifier
  rssi | number | RSSI in dBm (signed integer, 1 dB precision)
  lsnr | number | Lora SNR ratio in dB (signed float, 0.1 dB precision)
  size | number | RF packet payload size in bytes (unsigned integer)
@@ -141,8 +147,8 @@ and associated metadata with the following fields:
 
 Example (white-spaces, indentation and newlines added for readability):
 
-```json
-"rxpk":[
+``` json
+{"rxpk":[
 	{
 		"time":"2013-03-31T16:21:17.528002Z",
 		"tmst":3512348611,
@@ -158,6 +164,18 @@ Example (white-spaces, indentation and newlines added for readability):
 		"size":32,
 		"data":"-DS4CGaDCdG+48eJNM3Vai-zDpsR71Pn9CPA9uCON84"
 	},{
+		"time":"2013-03-31T16:21:17.530974Z",
+		"tmst":3512348514,
+		"chan":9,
+		"rfch":1,
+		"freq":869.1,
+		"stat":1,
+		"modu":"FSK",
+		"datr":50000,
+		"rssi":-75,
+		"size":16,
+		"data":"VEVTVF9QQUNLRVRfMTIzNA=="
+	},{
 		"time":"2013-03-31T16:21:17.532038Z",
 		"tmst":3316387610,
 		"chan":0,
@@ -172,12 +190,12 @@ Example (white-spaces, indentation and newlines added for readability):
 		"size":32,
 		"data":"ysgRl452xNLep9S1NTIg2lomKDxUgn3DJ7DE+b00Ass"
 	}
-]
+]}
 ```
 
 The root object can also contain an object named "stat" :
 
-```json
+``` json
 {
 	"rxpk":[ {...}, ...],
 	"stat":{...}
@@ -186,7 +204,7 @@ The root object can also contain an object named "stat" :
 
 It is possible for a packet to contain no "rxpk" array but a "stat" object.
 
-```json
+``` json
 {
 	"stat":{...}
 }
@@ -209,8 +227,8 @@ That object contains the status of the gateway, with the following fields:
 
 Example (white-spaces, indentation and newlines added for readability):
 
-```json
-"stat":{
+``` json
+{"stat":{
 	"time":"2014-01-12 08:59:28 GMT",
 	"lati":46.24000,
 	"long":3.25230,
@@ -221,8 +239,9 @@ Example (white-spaces, indentation and newlines added for readability):
 	"ackr":100.0,
 	"dwnb":2,
 	"txnb":2
-}
+}}
 ```
+
 
 5. Downstream protocol
 -----------------------
@@ -297,12 +316,13 @@ metadata that will have to be emitted by the gateway.
  3      | PULL_RESP identifier 0x03
  4-end  | JSON object, starting with {, ending with }, see section 6
 
+
 6. Downstream JSON data structure
 ----------------------------------
 
 The root object must contain an object named "txpk":
 
-```json
+``` json
 {
 	"txpk": {...}
 }
@@ -319,8 +339,10 @@ That object contain a RF packet to be emitted and associated metadata with the f
  rfch | number | Concentrator "RF chain" used for TX (unsigned integer)
  powe | number | TX output power in dBm (unsigned integer, dBm precision)
  modu | string | Modulation identifier "LORA" or "FSK"
- datr | string | Datarate identifier (eg. SF12BW500 for Lora)
- codr | string | ECC coding rate identifier
+ datr | string | LoRa datarate identifier (eg. SF12BW500)
+ datr | number | FSK datarate (unsigned, in bits per second)
+ codr | string | LoRa ECC coding rate identifier
+ fdev | number | FSK frequency deviation (unsigned integer, in Hz) 
  ipol | bool   | Lora modulation polarization inversion
  prea | number | RF preamble size (unsigned integer)
  size | number | RF packet payload size in bytes (unsigned integer)
@@ -330,10 +352,10 @@ That object contain a RF packet to be emitted and associated metadata with the f
 Most fields are optional.
 If a field is omitted, default parameters will be used.
 
-Example (white-spaces, indentation and newlines added for readability):
+Examples (white-spaces, indentation and newlines added for readability):
 
-```json
-"txpk":{
+``` json
+{"txpk":{
 	"imme":true,
 	"freq":864.123456,
 	"rfch":0,
@@ -344,11 +366,31 @@ Example (white-spaces, indentation and newlines added for readability):
 	"ipol":false,
 	"size":32,
 	"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
-}
+}}
 ```
+
+``` json
+{"txpk":{
+	"imme":true,
+	"freq":861.3,
+	"rfch":0,
+	"powe":12,
+	"modu":"FSK",
+	"datr":50000,
+	"fdev":3000,
+	"size":32,
+	"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
+}}
+```
+
 
 7. Revisions
 -------------
+
+### v1.2 ###
+
+* Added value of FSK bitrate for upstream.
+* Added parameters for FSK bitrate and frequency deviation for downstream.
 
 ### v1.1 ###
 
@@ -357,5 +399,3 @@ Example (white-spaces, indentation and newlines added for readability):
 ### v1.0 ###
 
 * Initial version.
-
-*EOF*
