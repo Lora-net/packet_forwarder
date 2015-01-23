@@ -206,6 +206,8 @@ static int parse_gateway_configuration(const char * conf_file);
 
 static uint16_t crc_ccit(const uint8_t * data, unsigned size);
 
+static uint8_t crc8_ccit(const uint8_t * data, unsigned size);
+
 static double difftimespec(struct timespec end, struct timespec beginning);
 
 /* threads */
@@ -573,6 +575,26 @@ static uint16_t crc_ccit(const uint8_t * data, unsigned size) {
 		x ^= (uint16_t)data[i] << 8;
 		for (j=0; j<8; ++j) {
 			x = (x & 0x8000) ? (x<<1) ^ crc_poly : (x<<1);
+		}
+	}
+	
+	return x;
+}
+
+static uint8_t crc8_ccit(const uint8_t * data, unsigned size) {
+	const uint8_t crc_poly = 0x87; /* CCITT */
+	const uint8_t init_val = 0xFF; /* CCITT */
+	uint8_t x = init_val;
+	unsigned i, j;
+	
+	if (data == NULL)  {
+		return 0;
+	}
+	
+	for (i=0; i<size; ++i) {
+		x ^= data[i];
+		for (j=0; j<8; ++j) {
+			x = (x & 0x80) ? (x<<1) ^ crc_poly : (x<<1);
 		}
 	}
 	
@@ -1422,13 +1444,11 @@ void thread_down(void) {
 	/* beacon variables */
 	struct lgw_pkt_tx_s beacon_pkt;
 	uint8_t tx_status_var;
-	struct tm * br_tm; /* broken-up time that will be broadcasted */
 	
 	/* beacon data fields, byte 0 is Least Significant Byte */
 	uint32_t field_netid = 0xC0FFEE; /* ID, 3 bytes only */
-	uint16_t field_chmask = 0xFFFF; /* all channels ? */
 	uint32_t field_time; /* variable field */
-	uint16_t field_crc1; /* variable field */
+	uint8_t field_crc1; /* variable field */
 	uint8_t field_info = 0;
 	int32_t field_latitude; /* 3 bytes, derived from reference latitude */
 	int32_t field_longitude; /* 3 bytes, derived from reference longitude */
@@ -1462,20 +1482,14 @@ void thread_down(void) {
 	beacon_pkt.preamble = 6;
 	beacon_pkt.no_crc = true;
 	beacon_pkt.no_header = true;
-	beacon_pkt.size = 24;
+	beacon_pkt.size = 17;
 	
 	/* fixed bacon fields (little endian) */
-	beacon_pkt.payload[ 0] = 0; /* RFU */
-	beacon_pkt.payload[ 1] = 0; /* RFU */
-	beacon_pkt.payload[ 2] = 0; /* RFU */
-	beacon_pkt.payload[ 3] = 0; /* RFU */
-	beacon_pkt.payload[ 4] = 0xFF &  field_netid;
-	beacon_pkt.payload[ 5] = 0xFF & (field_netid >>  8);
-	beacon_pkt.payload[ 6] = 0xFF & (field_netid >> 16);
-	beacon_pkt.payload[ 7] = 0xFF &  field_chmask;
-	beacon_pkt.payload[ 8] = 0xFF & (field_chmask >> 8);
-	/* 9-12 : time (variable) */
-	/* 13-14 : crc1 (variable) */
+	beacon_pkt.payload[0] = 0xFF &  field_netid;
+	beacon_pkt.payload[1] = 0xFF & (field_netid >>  8);
+	beacon_pkt.payload[2] = 0xFF & (field_netid >> 16);
+	/* 3-6 : time (variable) */
+	/* 7 : crc1 (variable) */
 	
 	/* calculate the latitude and longitude that must be publicly reported */
 	field_latitude = (int32_t)((reference_coord.lat / 90.0) * (double)(1<<23));
@@ -1487,17 +1501,17 @@ void thread_down(void) {
 	field_longitude = 0x00FFFFFF & (int32_t)((reference_coord.lon / 180.0) * (double)(1<<23)); /* +180 = -180 = 0x800000 */
 	
 	/* optional beacon fields */
-	beacon_pkt.payload[15] = field_info;
-	beacon_pkt.payload[16] = 0xFF &  field_latitude;
-	beacon_pkt.payload[17] = 0xFF & (field_latitude >>  8);
-	beacon_pkt.payload[18] = 0xFF & (field_latitude >> 16);
-	beacon_pkt.payload[19] = 0xFF &  field_longitude;
-	beacon_pkt.payload[20] = 0xFF & (field_longitude >>  8);
-	beacon_pkt.payload[21] = 0xFF & (field_longitude >> 16);
+	beacon_pkt.payload[ 8] = field_info;
+	beacon_pkt.payload[ 9] = 0xFF &  field_latitude;
+	beacon_pkt.payload[10] = 0xFF & (field_latitude >>  8);
+	beacon_pkt.payload[11] = 0xFF & (field_latitude >> 16);
+	beacon_pkt.payload[12] = 0xFF &  field_longitude;
+	beacon_pkt.payload[13] = 0xFF & (field_longitude >>  8);
+	beacon_pkt.payload[14] = 0xFF & (field_longitude >> 16);
 	
-	field_crc2 = crc_ccit((beacon_pkt.payload + 15), 7); /* CRC optional 7 bytes */
-	beacon_pkt.payload[22] = 0xFF &  field_crc2;
-	beacon_pkt.payload[23] = 0xFF & (field_crc2 >>  8);
+	field_crc2 = crc_ccit((beacon_pkt.payload + 8), 7); /* CRC optional 7 bytes */
+	beacon_pkt.payload[15] = 0xFF &  field_crc2;
+	beacon_pkt.payload[16] = 0xFF & (field_crc2 >>  8);
 	
 	while (!exit_sig && !quit_sig) {
 		
@@ -1536,26 +1550,18 @@ void thread_down(void) {
 				pthread_mutex_lock(&mx_timeref);
 				beacon_next_pps = false;
 				if ((gps_ref_valid == true) && (xtal_correct_ok == true)) {
-					br_tm = localtime(&(time_reference_gps.utc.tv_sec));
+					field_time = time_reference_gps.utc.tv_sec + 1; /* the beacon is prepared 1 sec before becon time */
 					pthread_mutex_unlock(&mx_timeref);
 					
 					/* load time in beacon payload */
-					field_time = 0;
-					field_time |= (0x3F & br_tm->tm_sec);				/* 6b: seconds, 0-61 */
-					field_time |= (0x3F & br_tm->tm_min) << 6;			/* 6b: minute, 0-59 */
-					field_time |= (0x1F & br_tm->tm_hour) << 12;		/* 5b: hour, 0-23 */
-					field_time |= (0x1F & br_tm->tm_mday) << 17;		/* 5b: day of month, 1-31 */
-					field_time |= (0x0F & (br_tm->tm_mon +1)) << 22;	/* 4b: month, 1-12 */
-					field_time |= (0x3F & (br_tm->tm_year -100)) << 26;	/* 6b: year, 0 = 2000BC */
 					beacon_pkt.payload[ 9] = 0xFF &  field_time;
 					beacon_pkt.payload[10] = 0xFF & (field_time >>  8);
 					beacon_pkt.payload[11] = 0xFF & (field_time >> 16);
 					beacon_pkt.payload[12] = 0xFF & (field_time >> 24);
 					
 					/* calculate CRC */
-					field_crc1 = crc_ccit(beacon_pkt.payload, 13); /* CRC for the first 13 bytes */
-					beacon_pkt.payload[13] = 0xFF &  field_crc1;
-					beacon_pkt.payload[14] = 0xFF & (field_crc1 >>  8);
+					field_crc1 = crc8_ccit(beacon_pkt.payload, 7); /* CRC for the first 7 bytes */
+					beacon_pkt.payload[7] = field_crc1;
 					
 					/* apply frequency correction to beacon TX frequency */
 					pthread_mutex_lock(&mx_xcorr);
@@ -1734,7 +1740,7 @@ void thread_down(void) {
 				json_value_free(root_val);
 				continue;
 			}
-			txpkt.freq_hz = (uint32_t)(1e6 * json_value_get_number(val));
+			txpkt.freq_hz = (uint32_t)((double)(1.0e6) * json_value_get_number(val));
 			
 			/* parse RF chain used for TX (mandatory) */
 			val = json_object_get_value(txpk_obj,"rfch");
@@ -1855,7 +1861,7 @@ void thread_down(void) {
 					json_value_free(root_val);
 					continue;
 				}
-				txpkt.f_dev = (uint8_t)(json_value_get_number(val));
+				txpkt.f_dev = (uint8_t)(json_value_get_number(val) / 1000.0); /* JSON value in Hz, txpkt.f_dev in kHz */
 					
 				/* parse FSK preamble length (optional field, optimum min value enforced) */
 				val = json_object_get_value(txpk_obj,"prea");

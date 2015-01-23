@@ -75,6 +75,12 @@ through the gateway-to-server downlink route.
 4. Changelog
 -------------
 
+### v1.4.1 - 2015-01-23 ###
+
+* Bugfix: fixed LP-116, fdev parameter parsed incorrectly, making FSK TX fail.
+* Bugfix: fixed a platform-dependant minor rounding issue.
+* Beta: updated beacon format, partially aligned with latest class B proposal.
+
 ### v1.4.0 - 2014-10-16 ###
 
 * Feature: Adding TX FSK support.

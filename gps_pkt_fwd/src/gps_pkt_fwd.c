@@ -1541,7 +1541,7 @@ void thread_down(void) {
 				json_value_free(root_val);
 				continue;
 			}
-			txpkt.freq_hz = (uint32_t)(1e6 * json_value_get_number(val));
+			txpkt.freq_hz = (uint32_t)((double)(1.0e6) * json_value_get_number(val));
 			
 			/* parse RF chain used for TX (mandatory) */
 			val = json_object_get_value(txpk_obj,"rfch");
@@ -1662,7 +1662,7 @@ void thread_down(void) {
 					json_value_free(root_val);
 					continue;
 				}
-				txpkt.f_dev = (uint8_t)(json_value_get_number(val));
+				txpkt.f_dev = (uint8_t)(json_value_get_number(val) / 1000.0); /* JSON value in Hz, txpkt.f_dev in kHz */
 					
 				/* parse FSK preamble length (optional field, optimum min value enforced) */
 				val = json_object_get_value(txpk_obj,"prea");
