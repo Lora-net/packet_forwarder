@@ -75,6 +75,15 @@ through the gateway-to-server downlink route.
 4. Changelog
 -------------
 
+### v2.0.0 - 2015-04-30 ###
+
+* Changed: Several configuration parameters are now set dynamically from the JSON configuration file: RSSI offset, concentrator clock source, radio type, TX gain table, network type. The HAL does not need to be recompiled any more to update those parameters. An example for IoT Starter Kit platform is provided in global_conf.json for basic, gps and beacon packet_forwarder.
+* Removed: Band frequency JSON configuration file has been removed. An example for EU 868MHz is provided in global_conf.json for basic, gps and beacon packet_forwarder.
+* Changed: Updated makefiles to allow cross compilation from environment variable (ARCH, CROSS_COMPILE).
+
+** WARNING: **
+** Update your JSON configuration file with new dynamic parameters. **
+
 ### v1.4.1 - 2015-01-23 ###
 
 * Bugfix: fixed LP-116, fdev parameter parsed incorrectly, making FSK TX fail.

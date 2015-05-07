@@ -231,14 +231,17 @@ static void sig_handler(int sigio) {
 static int parse_SX1301_configuration(const char * conf_file) {
 	int i;
 	char param_name[32]; /* used to generate variable parameter names */
+	const char *str; /* used to store string value from JSON object */
 	const char conf_obj_name[] = "SX1301_conf";
 	JSON_Value *root_val = NULL;
 	JSON_Object *conf_obj = NULL;
 	JSON_Value *val = NULL;
+	struct lgw_conf_board_s boardconf;
 	struct lgw_conf_rxrf_s rfconf;
 	struct lgw_conf_rxif_s ifconf;
 	uint32_t sf, bw, fdev;
-	
+	struct lgw_tx_gain_lut_s txlut;
+
 	/* try to parse JSON */
 	root_val = json_parse_file_with_comments(conf_file);
 	if (root_val == NULL) {
@@ -254,7 +257,86 @@ static int parse_SX1301_configuration(const char * conf_file) {
 	} else {
 		MSG("INFO: %s does contain a JSON object named %s, parsing SX1301 parameters\n", conf_file, conf_obj_name);
 	}
-	
+
+	/* set board configuration */
+	memset(&boardconf, 0, sizeof boardconf); /* initialize configuration structure */
+	val = json_object_get_value(conf_obj, "lorawan_public"); /* fetch value (if possible) */
+	if (json_value_get_type(val) == JSONBoolean) {
+		boardconf.lorawan_public = (bool)json_value_get_boolean(val);
+	} else {
+		MSG("WARNING: Data type for lorawan_public seems wrong, please check\n");
+		boardconf.lorawan_public = false;
+	}
+	val = json_object_get_value(conf_obj, "clksrc"); /* fetch value (if possible) */
+	if (json_value_get_type(val) == JSONNumber) {
+		boardconf.clksrc = (uint8_t)json_value_get_number(val);
+	} else {
+		MSG("WARNING: Data type for clksrc seems wrong, please check\n");
+		boardconf.clksrc = 0;
+	}
+	MSG("INFO: lorawan_public %d, clksrc %d\n", boardconf.lorawan_public, boardconf.clksrc);
+	/* all parameters parsed, submitting configuration to the HAL */
+        if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
+                MSG("WARNING: Failed to configure board\n");
+	}
+
+	/* set configuration for tx gains */
+	memset(&txlut, 0, sizeof txlut); /* initialize configuration structure */
+	for (i = 0; i < TX_GAIN_LUT_SIZE_MAX; i++) {
+		snprintf(param_name, sizeof param_name, "tx_lut_%i", i); /* compose parameter path inside JSON structure */
+		val = json_object_get_value(conf_obj, param_name); /* fetch value (if possible) */
+		if (json_value_get_type(val) != JSONObject) {
+			MSG("INFO: no configuration for tx gain lut %i\n", i);
+			continue;
+		}
+		txlut.size++; /* update TX LUT size based on JSON object found in configuration file */
+		/* there is an object to configure that TX gain index, let's parse it */
+		snprintf(param_name, sizeof param_name, "tx_lut_%i.pa_gain", i);
+		val = json_object_dotget_value(conf_obj, param_name);
+		if (json_value_get_type(val) == JSONNumber) {
+			txlut.lut[i].pa_gain = (uint8_t)json_value_get_number(val);
+		} else {
+			MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
+			txlut.lut[i].pa_gain = 0;
+		}
+                snprintf(param_name, sizeof param_name, "tx_lut_%i.dac_gain", i);
+                val = json_object_dotget_value(conf_obj, param_name);
+                if (json_value_get_type(val) == JSONNumber) {
+                        txlut.lut[i].dac_gain = (uint8_t)json_value_get_number(val);
+                } else {
+                        txlut.lut[i].dac_gain = 3; /* This is the only dac_gain supported for now */
+                }
+                snprintf(param_name, sizeof param_name, "tx_lut_%i.dig_gain", i);
+                val = json_object_dotget_value(conf_obj, param_name);
+                if (json_value_get_type(val) == JSONNumber) {
+                        txlut.lut[i].dig_gain = (uint8_t)json_value_get_number(val);
+                } else {
+			MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
+                        txlut.lut[i].dig_gain = 0;
+                }
+                snprintf(param_name, sizeof param_name, "tx_lut_%i.mix_gain", i);
+                val = json_object_dotget_value(conf_obj, param_name);
+                if (json_value_get_type(val) == JSONNumber) {
+                        txlut.lut[i].mix_gain = (uint8_t)json_value_get_number(val);
+                } else {
+			MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
+                        txlut.lut[i].mix_gain = 0;
+                }
+                snprintf(param_name, sizeof param_name, "tx_lut_%i.rf_power", i);
+                val = json_object_dotget_value(conf_obj, param_name);
+                if (json_value_get_type(val) == JSONNumber) {
+                        txlut.lut[i].rf_power = (int8_t)json_value_get_number(val);
+                } else {
+			MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
+                        txlut.lut[i].rf_power = 0;
+                }
+	}
+	/* all parameters parsed, submitting configuration to the HAL */
+	MSG("INFO: Configuring TX LUT with %u indexes\n", txlut.size);
+        if (lgw_txgain_setconf(&txlut) != LGW_HAL_SUCCESS) {
+                MSG("WARNING: Failed to configure concentrator TX Gain LUT\n");
+	}
+
 	/* set configuration for RF chains */
 	for (i = 0; i < LGW_RF_CHAIN_NB; ++i) {
 		memset(&rfconf, 0, sizeof rfconf); /* initialize configuration structure */
@@ -277,7 +359,25 @@ static int parse_SX1301_configuration(const char * conf_file) {
 		} else  { /* radio enabled, will parse the other parameters */
 			snprintf(param_name, sizeof param_name, "radio_%i.freq", i);
 			rfconf.freq_hz = (uint32_t)json_object_dotget_number(conf_obj, param_name);
-			MSG("INFO: radio %i enabled, center frequency %u\n", i, rfconf.freq_hz);
+			snprintf(param_name, sizeof param_name, "radio_%i.rssi_offset", i);
+			rfconf.rssi_offset = (float)json_object_dotget_number(conf_obj, param_name);
+			snprintf(param_name, sizeof param_name, "radio_%i.type", i);
+			str = json_object_dotget_string(conf_obj, param_name);
+			if (!strncmp(str, "SX1255", 6)) {
+				rfconf.type = LGW_RADIO_TYPE_SX1255;
+			} else if (!strncmp(str, "SX1257", 6)) {
+				rfconf.type = LGW_RADIO_TYPE_SX1257;
+			} else {
+				MSG("WARNING: invalid radio type: %s (should be SX1255 or SX1257)\n", str);
+			}
+			snprintf(param_name, sizeof param_name, "radio_%i.tx_enable", i);
+			val = json_object_dotget_value(conf_obj, param_name);
+			if (json_value_get_type(val) == JSONBoolean) {
+				rfconf.tx_enable = (bool)json_value_get_boolean(val);
+			} else {
+				rfconf.tx_enable = false;
+			}
+			MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable);
 		}
 		/* all parameters parsed, submitting configuration to the HAL */
 		if (lgw_rxrf_setconf(i, rfconf) != LGW_HAL_SUCCESS) {

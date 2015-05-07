@@ -1,7 +1,8 @@
 ### Environment constants 
 
-LGW_PATH := ../../lora_gateway/libloragw
-CROSS_COMPILE :=
+LGW_PATH ?= ../../lora_gateway/libloragw
+ARCH ?=
+CROSS_COMPILE ?=
 export
 
 ### general build targets
