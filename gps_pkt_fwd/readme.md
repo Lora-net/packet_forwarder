@@ -76,7 +76,7 @@ chips) that must be matched with the proper version of the HAL.
 ---------
 
 To stop the application, press Ctrl+C.
-Unless it's manually stopped or encounter a critical error, the program will 
+Unless it is manually stopped or encounter a critical error, the program will 
 run forever.
 
 There are no command line launch options.

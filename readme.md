@@ -72,8 +72,24 @@ datagrams with PULL_ACK.
 The network packet sender is a simple helper program used to send packets 
 through the gateway-to-server downlink route.
 
-4. Changelog
+4. Helper scripts
+-----------------
+
+### 4.1. reset_pkt_fwd.sh
+
+This script is to be used on IoT Start Kit platform to reset concentrator chip through GPIO.
+It also allows automatic update of Gateway_ID with unique MAC address, in Packet Forwarder JSON
+configuration file.
+Please refer to the script header for more details.
+
+5. Changelog
 -------------
+
+### v2.1.0 - 2015-06-29 ###
+
+* Added helper script for concentrator reset through GPIO, needed on IoT Starter Kit (reset_pkt_fwd.sh).
+* The same reset_pkt_fwd.sh script also allows to automatically update the Gateway_ID field in JSON configuration file, with board MAC address.
+* Updated JSON configuration file with proper default value for IoT Starter Kit: server address set to local server, GPS device path set to proper value (/dev/ttyAMA0).
 
 ### v2.0.0 - 2015-04-30 ###
 
@@ -137,7 +153,7 @@ it's not compliant with JSON standard (might be interpreted as octal number).
 * Initial release of the packet forwarder, protocol specifications and helper
 programs.
 
-5. Legal notice
+6. Legal notice
 ----------------
 
 The information presented in this project documentation does not form part of 

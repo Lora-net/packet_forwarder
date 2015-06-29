@@ -2085,11 +2085,13 @@ void thread_gps(void) {
 			}
 			
 			/* check if beacon must be sent */
-			sec_of_cycle = (utc_time.tv_sec + 1) % (time_t)(beacon_period);
-			if (sec_of_cycle == beacon_offset) {
-				beacon_next_pps = true;
-			} else {
-				beacon_next_pps = false;
+			if (beacon_period > 0) {
+				sec_of_cycle = (utc_time.tv_sec + 1) % (time_t)(beacon_period);
+				if (sec_of_cycle == beacon_offset) {
+					beacon_next_pps = true;
+				} else {
+					beacon_next_pps = false;
+				}
 			}
 			
 			/* get timestamp captured on PPM pulse  */

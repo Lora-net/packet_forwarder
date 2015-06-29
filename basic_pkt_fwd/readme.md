@@ -72,7 +72,7 @@ chips) that must be matched with the proper version of the HAL.
 ---------
 
 To stop the application, press Ctrl+C.
-Unless it's manually stopped or encounter a critical error, the program will 
+Unless it is manually stopped or encounter a critical error, the program will 
 run forever.
 
 There are no command line launch options.
@@ -105,7 +105,7 @@ Every X seconds (parameter settable in the configuration files) the program
 display statistics on the RF packets received and sent, and the network 
 datagrams received and sent.
 
-This basic variant of the packet forwarder doesn't send status report to the
+This basic variant of the packet forwarder does not send status report to the
 server.
 
 5. License
