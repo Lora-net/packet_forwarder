@@ -35,20 +35,7 @@ LGW_INC += $(LGW_PATH)/inc/loragw_gps.h
 
 ### Linking options
 
-ifeq ($(CFG_SPI),native)
-  LIBS := -lloragw -lrt -lpthread
-else ifeq ($(CFG_SPI),ftdi)
-  LIBS := -lloragw -lrt -lpthread -lmpsse
-else
-  # keep compatibility with SX1301 HAL version 1.2.x and bellow
-  ifeq ($(LGW_PHY),native)
-    LIBS := -lloragw -lrt -lpthread
-  else ifeq ($(LGW_PHY),ftdi)
-    LIBS := -lloragw -lrt -lpthread -lmpsse
-  else
-    $(error [error] Can't find configuration for SPI phy)
-  endif
-endif
+LIBS := -lloragw -lrt -lpthread
 
 ### General build targets
 

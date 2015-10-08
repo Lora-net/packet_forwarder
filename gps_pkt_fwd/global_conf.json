@@ -197,7 +197,7 @@
     "gateway_conf": {
         "gateway_ID": "AA555A0000000000",
         /* change with default server address/ports, or overwrite in local_conf.json */
-        "server_address": "127.0.0.1",
+        "server_address": "localhost",
         "serv_port_up": 1680,
         "serv_port_down": 1680,
         /* adjust the following parameters for your network */

@@ -830,7 +830,7 @@ int main(void)
 	
 	/* prepare hints to open network sockets */
 	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC; /* should handle IP v4 or v6 automatically */
+	hints.ai_family = AF_INET; /* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
 	hints.ai_socktype = SOCK_DGRAM;
 	
 	/* look for server address w/ upstream port */

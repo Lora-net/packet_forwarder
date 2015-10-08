@@ -77,25 +77,45 @@ through the gateway-to-server downlink route.
 
 ### 4.1. reset_pkt_fwd.sh
 
-This script is to be used on IoT Start Kit platform to reset concentrator chip through GPIO.
-It also allows automatic update of Gateway_ID with unique MAC address, in Packet Forwarder JSON
-configuration file.
+This script is to be used on IoT Start Kit platform to reset concentrator chip
+through GPIO.
+It also allows automatic update of Gateway_ID with unique MAC address, in
+packet forwarder JSON configuration file.
 Please refer to the script header for more details.
 
 5. Changelog
 -------------
 
+### v2.2.0 - 2015-10-08 ###
+
+* Removed FTDI support in makefiles to align with HAL v3.2.0.
+* Force IPv4 mode usage on UDP socket, instead of auto. The auto mode was
+causing an issue to properly resolve LoRa server hostname given in JSON
+configuration file (MariaDB issue: https://mariadb.atlassian.net/browse/MDEV-4356,
+https://mariadb.atlassian.net/browse/MDEV-4379).
+
 ### v2.1.0 - 2015-06-29 ###
 
-* Added helper script for concentrator reset through GPIO, needed on IoT Starter Kit (reset_pkt_fwd.sh).
-* The same reset_pkt_fwd.sh script also allows to automatically update the Gateway_ID field in JSON configuration file, with board MAC address.
-* Updated JSON configuration file with proper default value for IoT Starter Kit: server address set to local server, GPS device path set to proper value (/dev/ttyAMA0).
+* Added helper script for concentrator reset through GPIO, needed on IoT
+Starter Kit (reset_pkt_fwd.sh).
+* The same reset_pkt_fwd.sh script also allows to automatically update the
+Gateway_ID field in JSON configuration file, with board MAC address.
+* Updated JSON configuration file with proper default value for IoT Starter
+Kit: server address set to local server, GPS device path set to proper value
+(/dev/ttyAMA0).
 
 ### v2.0.0 - 2015-04-30 ###
 
-* Changed: Several configuration parameters are now set dynamically from the JSON configuration file: RSSI offset, concentrator clock source, radio type, TX gain table, network type. The HAL does not need to be recompiled any more to update those parameters. An example for IoT Starter Kit platform is provided in global_conf.json for basic, gps and beacon packet_forwarder.
-* Removed: Band frequency JSON configuration file has been removed. An example for EU 868MHz is provided in global_conf.json for basic, gps and beacon packet_forwarder.
-* Changed: Updated makefiles to allow cross compilation from environment variable (ARCH, CROSS_COMPILE).
+* Changed: Several configuration parameters are now set dynamically from the
+JSON configuration file: RSSI offset, concentrator clock source, radio type,
+TX gain table, network type. The HAL does not need to be recompiled any more to
+update those parameters. An example for IoT Starter Kit platform is provided in
+global_conf.json for basic, gps and beacon packet_forwarder.
+* Removed: Band frequency JSON configuration file has been removed. An example
+for EU 868MHz is provided in global_conf.json for basic, gps and beacon packet
+forwarder.
+* Changed: Updated makefiles to allow cross compilation from environment
+variable (ARCH, CROSS_COMPILE).
 
 ** WARNING: **
 ** Update your JSON configuration file with new dynamic parameters. **
@@ -140,10 +160,10 @@ specification updated accordingly (report include gateway geolocation).
 ### v1.1.0 - 2013-12-09 ###
 
 * Feature: added packet filtering parameters to the JSON configuration files.
-* Bugfix: won't send a datagram if all the packets returned by the receive()
+* Bugfix: will not send a datagram if all the packets returned by the receive()
 function have been filtered out.
 * Bugfix: removed leading zeros for the timestamp in the upstream JSON because
-it's not compliant with JSON standard (might be interpreted as octal number).
+it is not compliant with JSON standard (might be interpreted as octal number).
 * Removed TXT extension for README files for better Github integration.
 * Cleaned-up documentation, moving change log to top README.
 * Modified Makefiles to ease cross-compilation.
