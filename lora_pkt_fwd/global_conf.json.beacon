@@ -2,12 +2,15 @@
     "SX1301_conf": {
         "lorawan_public": true,
         "clksrc": 1, /* radio_1 provides clock to concentrator */
+        "antenna_gain": 0, /* antenna gain, in dBi */
         "radio_0": {
             "enable": true,
             "type": "SX1257",
             "freq": 867500000,
             "rssi_offset": -166.0,
-            "tx_enable": true
+            "tx_enable": true,
+            "tx_freq_min": 867000000,
+            "tx_freq_max": 870000000
         },
         "radio_1": {
             "enable": true,
@@ -196,8 +199,9 @@
 
     "gateway_conf": {
         "gateway_ID": "AA555A0000000000",
+        "network_ID": "C0FFEE",
         /* change with default server address/ports, or overwrite in local_conf.json */
-        "server_address": "127.0.0.1",
+        "server_address": "localhost",
         "serv_port_up": 1680,
         "serv_port_down": 1680,
         /* adjust the following parameters for your network */
@@ -209,7 +213,13 @@
         "forward_crc_error": false,
         "forward_crc_disabled": false,
         /* GPS configuration */
-        "gps_tty_path": "/dev/ttyAMA0"
+        "gps_tty_path": "/dev/ttyAMA0",
+        /* GPS reference coordinates */
+        "ref_latitude": 0.0,
+        "ref_longitude": 0.0,
+        "ref_altitude": 0,
+        /* Beaconing parameters */
+        "beacon_period": 128,
+        "beacon_freq_hz": 869525000
     }
 }
-

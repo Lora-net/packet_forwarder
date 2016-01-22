@@ -96,7 +96,7 @@ received, and associated metadata, to the server.
 
  Bytes  | Function
 :------:|---------------------------------------------------------------------
- 0      | protocol version = 1
+ 0      | protocol version = 2
  1-2    | random token
  3      | PUSH_DATA identifier 0x00
  4-11   | Gateway unique identifier (MAC address)
@@ -109,7 +109,7 @@ PUSH_DATA packets received.
 
  Bytes  | Function
 :------:|---------------------------------------------------------------------
- 0      | protocol version = 1
+ 0      | protocol version = 2
  1-2    | same token as the PUSH_DATA packet to acknowledge
  3      | PUSH_ACK identifier 0x01
 
@@ -130,7 +130,7 @@ and associated metadata with the following fields:
 
  Name |  Type  | Function
 :----:|:------:|--------------------------------------------------------------
- time | string | UTC time of pkt RX, us precision, ISO 8601 'compact' format
+ time | number | GPS time of pkt RX, number of milliseconds since 01.Jan.1970
  tmst | number | Internal timestamp of "RX finished" event (32b unsigned)
  freq | number | RX central frequency in MHz (unsigned float, Hz precision)
  chan | number | Concentrator "IF" channel used for RX (unsigned integer)
@@ -150,7 +150,7 @@ Example (white-spaces, indentation and newlines added for readability):
 ``` json
 {"rxpk":[
 	{
-		"time":"2013-03-31T16:21:17.528002Z",
+		"time":1440422092923,
 		"tmst":3512348611,
 		"chan":2,
 		"rfch":0,
@@ -164,7 +164,7 @@ Example (white-spaces, indentation and newlines added for readability):
 		"size":32,
 		"data":"-DS4CGaDCdG+48eJNM3Vai-zDpsR71Pn9CPA9uCON84"
 	},{
-		"time":"2013-03-31T16:21:17.530974Z",
+		"time":1440422118108,
 		"tmst":3512348514,
 		"chan":9,
 		"rfch":1,
@@ -176,7 +176,7 @@ Example (white-spaces, indentation and newlines added for readability):
 		"size":16,
 		"data":"VEVTVF9QQUNLRVRfMTIzNA=="
 	},{
-		"time":"2013-03-31T16:21:17.532038Z",
+		"time":1440422132402,
 		"tmst":3316387610,
 		"chan":0,
 		"rfch":0,
@@ -269,9 +269,11 @@ Example (white-spaces, indentation and newlines added for readability):
 	     |      | Anytime after first PULL_DATA for each packet to TX |-|
 	     |      ------------------------------------------------------- |
 	     |                                                              |
-	     |                            PULL_RESP (token 0, JSON payload) |
+	     |                            PULL_RESP (token Z, JSON payload) |
 	     |<-------------------------------------------------------------|
 	     |                                                              |
+	     | TX_ACK (token Z, JSON payload)                               |
+	     |------------------------------------------------------------->|
 
 ### 5.2. PULL_DATA packet ###
 
@@ -288,7 +290,7 @@ route stays open for the server to be used at any time.
 
  Bytes  | Function
 :------:|---------------------------------------------------------------------
- 0      | protocol version = 1
+ 0      | protocol version = 2
  1-2    | random token
  3      | PULL_DATA identifier 0x02
  4-11   | Gateway unique identifier (MAC address)
@@ -300,7 +302,7 @@ open and that the server can send PULL_RESP packets at any time.
 
  Bytes  | Function
 :------:|---------------------------------------------------------------------
- 0      | protocol version = 1
+ 0      | protocol version = 2
  1-2    | same token as the PULL_DATA packet to acknowledge
  3      | PULL_ACK identifier 0x04
 
@@ -311,16 +313,30 @@ metadata that will have to be emitted by the gateway.
 
  Bytes  | Function
 :------:|---------------------------------------------------------------------
- 0      | protocol version = 1
- 1-2    | unused bytes
+ 0      | protocol version = 2
+ 1-2    | random token
  3      | PULL_RESP identifier 0x03
  4-end  | JSON object, starting with {, ending with }, see section 6
 
+### 5.5. TX_ACK packet ###
+
+That packet type is used by the gateway to send a feedback to the server
+to inform if a downlink request has been accepted or rejected by the gateway.
+The datagram may optionnaly contain a JSON string to give more details on
+acknoledge. If no JSON is present (empty string), this means than no error
+occured.
+
+ Bytes  | Function
+:------:|---------------------------------------------------------------------
+ 0      | protocol version = 2
+ 1-2    | same token as the PULL_RESP packet to acknowledge
+ 3      | TX_ACK identifier 0x05
+ 4-end  | [optional] JSON object, starting with {, ending with }, see section 6
 
 6. Downstream JSON data structure
 ----------------------------------
 
-The root object must contain an object named "txpk":
+The root object of PULL_RESP packet must contain an object named "txpk":
 
 ``` json
 {
@@ -334,7 +350,7 @@ That object contain a RF packet to be emitted and associated metadata with the f
 :----:|:------:|--------------------------------------------------------------
  imme | bool   | Send packet immediately (will ignore tmst & time)
  tmst | number | Send packet on a certain timestamp value (will ignore time)
- time | string | Send packet at a certain time (GPS synchronization required)
+ time | number | Send packet at a certain GPS time (GPS synchronization required)
  freq | number | TX central frequency in MHz (unsigned float, Hz precision)
  rfch | number | Concentrator "RF chain" used for TX (unsigned integer)
  powe | number | TX output power in dBm (unsigned integer, dBm precision)
@@ -383,9 +399,49 @@ Examples (white-spaces, indentation and newlines added for readability):
 }}
 ```
 
+The root object of TX_ACK packet must contain an object named "txpk_ack":
+
+``` json
+{
+	"txpk_ack": {...}
+}
+```
+
+That object contain status information concerning the associated PULL_RESP packet.
+
+ Name |  Type  | Function
+:----:|:------:|------------------------------------------------------------------------------
+error | string | Indication about success or type of failure that occured for downlink request.
+
+The possible values of "error" field are:
+
+ Value             | Definition
+:-----------------:|---------------------------------------------------------------------
+ NONE              | Packet has been programmed for downlink
+ TOO_LATE          | Rejected because it was already too late to program this packet for downlink
+ TOO_EARLY         | Rejected because downlink packet timestamp is too much in advance
+ COLLISION_PACKET  | Rejected because there was already a packet programmed in requested timeframe
+ COLLISION_BEACON  | Rejected because there was already a beacon planned in requested timeframe
+ TX_FREQ           | Rejected because requested frequency is not supported by TX RF chain
+ TX_POWER          | Rejected because requested power is not supported by gateway
+ GPS_UNLOCKED      | Rejected because GPS is unlocked, so GPS timestamp cannot be used
+
+Examples (white-spaces, indentation and newlines added for readability):
+
+``` json
+{"txpk_ack":{
+	"error":"COLLISION_PACKET"
+}}
+```
 
 7. Revisions
 -------------
+
+### v1.3 ###
+
+* Added downlink feedback from gateway to server (PULL_RESP -> TX_ACK)
+* Changed GPS time format from ISO 8601 to monotonic number of milliseconds
+   ellapsed since January 1st, 1970 (Unix Epoch). No leap second considered.
 
 ### v1.2 ###
 

@@ -5,15 +5,17 @@
 	(______/|_____)_|_|_| \__)_____)\____)_| |_|
 	  (C)2013 Semtech-Cycleo
 
-Lora Gateway packet forwarder with GPS extensions
-==================================================
+Lora Gateway packet forwarder
+=============================
 
 1. Introduction
 ----------------
 
-The GPS packet forwarder is a program running on the host of a Lora Gateway 
-that forward RF packets receive by the concentrator to a server through a 
-IP/UDP link, and emits RF packets that are sent by the server.
+The packet forwarder is a program running on the host of a Lora gateway that
+forwards RF packets receive by the concentrator to a server through a IP/UDP
+link, and emits RF packets that are sent by the server. It can also emit a
+network-wide GPS-synchronous beacon signal used for coordinating all nodes of
+the network.
 
 To learn more about the network protocol between the gateway and the server, 
 please read the PROTOCOL.TXT document.
@@ -67,7 +69,7 @@ Data structures of the received packets are accessed by name (ie. not at a
 binary level) so new functionalities can be added to the API without affecting
 that program at all.
 
-This program follows the v1.1 version of the gateway-to-server protocol.
+This program follows the v1.3 version of the gateway-to-server protocol.
 
 The last dependency is the hardware concentrator (based on FPGA or SX130x 
 chips) that must be matched with the proper version of the HAL.
@@ -101,6 +103,13 @@ In each configuration file, the program looks for a JSON object named
 board (RF channels definition, modem parameters, etc) and another JSON object 
 called "gateway_conf" that should contain the gateway parameters (gateway MAC 
 address, IP address of the server, keep-alive time, etc).
+
+3 different flavours of the global_conf.json are given as examples:
+- global_conf.json.basic : basic packet forwarder, no GPS enabled
+- global_conf.json.gps : add support for a GPS receiver for absolute time
+                          synchronization and gateway localisation.
+- global_conf.json.beacon : uses GPS reference to send beacon packets at very
+                             time intervals for node synchronization.
 
 To learn more about the JSON configuration format, read the provided JSON 
 files and the libloragw API documentation.
