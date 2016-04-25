@@ -993,8 +993,10 @@ int main(void)
 	/* wait for upstream thread to finish (1 fetch cycle max) */
 	pthread_join(thrid_up, NULL);
 	pthread_cancel(thrid_down); /* don't wait for downstream thread */
-	pthread_cancel(thrid_gps); /* don't wait for GPS thread */
-	pthread_cancel(thrid_valid); /* don't wait for validation thread */
+	if (gps_enabled == true) {
+		pthread_cancel(thrid_gps); /* don't wait for GPS thread */
+		pthread_cancel(thrid_valid); /* don't wait for validation thread */
+	}
 
 	/* if an exit signal was received, try to quit properly */
 	if (exit_sig) {

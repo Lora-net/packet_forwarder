@@ -1,9 +1,10 @@
 #!/bin/sh
 
-# This script is intended to be used on IoT Starter Kit platform only, it performs the
-# following actions:
+# This script is intended to be used on IoT Starter Kit platform only, it
+# performs the following actions:
 #       - export/unpexort GPIO7 used to reset the SX1301 chip
-#       - optionaly update the Gateway_ID field of given JSON configuration file, with MAC address
+#       - optionaly update the Gateway_ID field of given JSON configuration
+#           file, as a EUI-64 address generated from the 48-bits MAC address
 #
 # Usage examples:
 #       ./reset_pkt_fwd.sh start ./local_conf.json
@@ -51,14 +52,15 @@ iot_sk_update_gwid() {
     then
         echo "Gateway_ID not set, using default"
     else
-        # get gateway ID from its MAC address
-        GWID_PREFIX="FFFE"
-        GWID=$(ip link show eth0 | awk '/ether/ {print $2}' | awk -F\: '{print $1$2$3$4$5$6}')
+        # get gateway ID from its MAC address to generate an EUI-64 address
+        GWID_MIDFIX="FFFE"
+        GWID_BEGIN=$(ip link show eth0 | awk '/ether/ {print $2}' | awk -F\: '{print $1$2$3}')
+        GWID_END=$(ip link show eth0 | awk '/ether/ {print $2}' | awk -F\: '{print $4$5$6}')
 
         # replace last 8 digits of default gateway ID by actual GWID, in given JSON configuration file
-        sed -i 's/\(^\s*"gateway_ID":\s*"\).\{16\}"\s*\(,\?\).*$/\1'${GWID_PREFIX}${GWID}'"\2/' $1
+        sed -i 's/\(^\s*"gateway_ID":\s*"\).\{16\}"\s*\(,\?\).*$/\1'${GWID_BEGIN}${GWID_MIDFIX}${GWID_END}'"\2/' $1
 
-        echo "Gateway_ID set to "$GWID_PREFIX$GWID" in file "$1
+        echo "Gateway_ID set to "$GWID_BEGIN$GWID_MIDFIX$GWID_END" in file "$1
     fi
 }
 

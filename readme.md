@@ -77,14 +77,24 @@ through the gateway-to-server downlink route.
 
 ### 4.1. reset_pkt_fwd.sh
 
-This script is to be used on IoT Start Kit platform to reset concentrator chip
-through GPIO.
+This script must be launched on IoT Start Kit platform to reset concentrator
+chip through GPIO, before starting any packet forwarder.
 It also allows automatic update of Gateway_ID with unique MAC address, in
 packet forwarder JSON configuration file.
 Please refer to the script header for more details.
 
 5. Changelog
 -------------
+
+### v2.2.1 - 2016-04-12 ###
+
+* util_tx_test: added FSK support and specific payload for easier PER testing.
+* base64: fixed padding check.
+* Updated all makefiles to handle the creation of obj directory when necessary.
+* [gps/beacon]_pkt_fwd: fixed crash on exit when GPS not enabled.
+* [*]_pkt_fwd: added a cfg/ directory containing different flavours or the
+global_conf.json file for different boards: Ref Design PCB_E336 (GW1.5-27dBm),
+Ref Design PCB_E286 (GW1.0), Ref Design with US902 frequency plan.
 
 ### v2.2.0 - 2015-10-08 ###
 

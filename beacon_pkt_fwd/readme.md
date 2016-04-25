@@ -6,7 +6,7 @@
 	  (C)2013 Semtech-Cycleo
 
 Lora Gateway packet forwarder with beacon extension
-=====================================================
+===================================================
 
 1. Introduction
 ----------------
@@ -40,8 +40,8 @@ please read the PROTOCOL.TXT document.
 	|            Gateway          |
 	+- - - - - - - - - - - - - - -+
 
-Concentrator: radio RX/TX board, based on Semtech multichannel modems (SX130x), 
-transceivers (SX135x) and/or low-power stand-alone modems (SX127x).
+Concentrator: radio RX/TX board, based on Semtech multichannel modems (SX1301),
+transceivers (SX125x) and/or low-power stand-alone modems (SX127x).
 
 Host: embedded computer on which the packet forwarder is run. Drives the 
 concentrator through a SPI link.
@@ -63,19 +63,24 @@ Krzysztof Gabis for JSON parsing.
 Many thanks to him for that very practical and well written library.
 
 This program is statically linked with the libloragw Lora concentrator library.
-It was tested with v1.3.0 of the library but should work with any later 
-version provided the API is v1 or a later backward-compatible API.
 Data structures of the received packets are accessed by name (ie. not at a
 binary level) so new functionalities can be added to the API without affecting
 that program at all.
 
 This program follows the v1.1 version of the gateway-to-server protocol.
 
-The last dependency is the hardware concentrator (based on FPGA or SX130x 
-chips) that must be matched with the proper version of the HAL.
+The last dependency is the hardware concentrator (based on SX1301 chips) that
+must be matched with the proper version of the HAL.
 
 4. Usage
 ---------
+
+1. Update JSON configuration files, as explained below.
+2. For IoT Starter Kit only, run:
+    ./reset_pkd_fwd.sh stop
+    ./reset_pkd_fwd.sh start local_conf.json
+3. Run:
+    ./beacon_pkt_fwd
 
 To stop the application, press Ctrl+C.
 Unless it is manually stopped or encounter a critical error, the program will 
@@ -94,6 +99,20 @@ The global configuration file should be exactly the same throughout your
 network, contain all global parameters (parameters for "sensor" radio 
 channels) and preferably default "safe" values for parameters that are 
 specific for each gateway (eg. specify a default MAC address).
+As some of the parameters (like 'rssi_offset', 'tx_lut_*') are board dependant,
+several flavours of the global_conf.json file are provided in the cfg/
+directory.
+    * global_conf.json.PCB_E286.EU868: to be used for Semtech reference design
+        board with PCB name PCB_E286 (also called Gateway Board v1.0 (no FPGA)).
+        Configured for Europe 868MHz channels.
+    * global_conf.json.PCB_E336.EU868: to be used for Semtech reference design
+        board with PCB name PCB_E336 (also called Gateway Board v1.5 (with FPGA)).
+        Configured for Europe 868MHz channels.
+    * global_conf.json.US902: to be used for Semtech reference design v1.0 or
+        v1.5. (No calibration done for RSSI offset and TX gains yet).
+        Configured for US 902MHz channels.
+Rename the one you need to global_conf.json before launching the packet
+forwarder.
 
 The local configuration file should contain parameters that are specific to 
 each gateway (eg. MAC address, frequency for backhaul radio channels).

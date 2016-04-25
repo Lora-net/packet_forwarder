@@ -9,25 +9,28 @@ AR := $(CROSS_COMPILE)ar
 
 CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
 
+OBJDIR = obj
+INCLUDES = $(wildcard inc/*.h)
+
 ### General build targets
 
 all: $(APP_NAME)
 
 clean:
-	rm -f obj/*.o
+	rm -f $(OBJDIR)/*.o
 	rm -f $(APP_NAME)
 
 ### Sub-modules compilation
 
-obj/base64.o: src/base64.c inc/base64.h
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(OBJDIR)/%.o: src/%.c $(INCLUDES) | $(OBJDIR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
-### Main program compilation and assembly
+### Main program assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c inc/base64.h
-	$(CC) -c $(CFLAGS) $< -o $@
-
-$(APP_NAME): obj/$(APP_NAME).o  obj/base64.o
-	$(CC) $<  obj/base64.o -o $@
+$(APP_NAME): $(OBJDIR)/$(APP_NAME).o  $(OBJDIR)/base64.o
+	$(CC) $< $(OBJDIR)/base64.o -o $@
 
 ### EOF

@@ -263,7 +263,7 @@ int bin_to_b64(const uint8_t * in, int size, char * out, int max_len) {
 			DEBUG("ERROR: INVALID UNPADDED BASE64 STRING\n");
 			return -1;
 		case 2: /* 2 chars in last block, must add 2 padding char */
-			if (max_len > (ret + 2 + 1)) {
+			if (max_len >= (ret + 2 + 1)) {
 				out[ret] = code_pad;
 				out[ret+1] = code_pad;
 				out[ret+2] = 0;
@@ -273,7 +273,7 @@ int bin_to_b64(const uint8_t * in, int size, char * out, int max_len) {
 				return -1;
 			}
 		case 3: /* 3 chars in last block, must add 1 padding char */
-			if (max_len > (ret + 1 + 1)) {
+			if (max_len >= (ret + 1 + 1)) {
 				out[ret] = code_pad;
 				out[ret+1] = 0;
 				return ret+1;

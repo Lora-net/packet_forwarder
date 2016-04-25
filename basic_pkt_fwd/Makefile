@@ -8,6 +8,9 @@ LGW_PATH ?= ../../lora_gateway/libloragw
 ARCH ?=
 CROSS_COMPILE ?=
 
+OBJDIR = obj
+INCLUDES = $(wildcard inc/*.h)
+
 ### External constant definitions
 # must get library build option to know if mpsse must be linked or not
 
@@ -41,23 +44,23 @@ LIBS := -lloragw -lrt -lpthread
 all: $(APP_NAME)
 
 clean:
-	rm -f obj/*.o
+	rm -f $(OBJDIR)/*.o
 	rm -f $(APP_NAME)
 
 ### Sub-modules compilation
 
-obj/base64.o: src/base64.c inc/base64.h
-	$(CC) -c $(CFLAGS) $< -o $@
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
-obj/parson.o: src/parson.c inc/parson.h
+$(OBJDIR)/%.o: src/%.c $(INCLUDES) | $(OBJDIR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 ### Main program compilation and assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC) inc/parson.h inc/base64.h
+$(OBJDIR)/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC) $(INCLUDES) | $(OBJDIR)
 	$(CC) -c $(CFLAGS) $(VFLAG) -I$(LGW_PATH)/inc $< -o $@
 
-$(APP_NAME): obj/$(APP_NAME).o $(LGW_PATH)/libloragw.a obj/parson.o obj/base64.o
-	$(CC) -L$(LGW_PATH) $< obj/parson.o obj/base64.o -o $@ $(LIBS)
+$(APP_NAME): $(OBJDIR)/$(APP_NAME).o $(LGW_PATH)/libloragw.a $(OBJDIR)/parson.o $(OBJDIR)/base64.o
+	$(CC) -L$(LGW_PATH) $< $(OBJDIR)/parson.o $(OBJDIR)/base64.o -o $@ $(LIBS)
 
 ### EOF

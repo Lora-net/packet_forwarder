@@ -9,20 +9,25 @@ AR := $(CROSS_COMPILE)ar
 
 CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
 
+OBJDIR = obj
+
 ### General build targets
 
 all: $(APP_NAME)
 
 clean:
-	rm -f obj/*.o
+	rm -f $(OBJDIR)/*.o
 	rm -f $(APP_NAME)
 
 ### Main program compilation and assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c 
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(OBJDIR)/%.o: src/%.c | $(OBJDIR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
-$(APP_NAME): obj/$(APP_NAME).o
+$(APP_NAME): $(OBJDIR)/$(APP_NAME).o
 	$(CC) $< -o $@
 
 ### EOF
