@@ -73,7 +73,7 @@
             "spread_factor": 8
         },
         "chan_FSK": {
-            /* FSK 100kbps channel, 927.3 MHz */
+            /* FSK 100kbps channel, 903.0 MHz */
             "enable": false,
             "radio": 0,
             "if": 300000,
