@@ -44,13 +44,13 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
-#define ARRAY_SIZE(a)    (sizeof(a) / sizeof((a)[0]))
+#define ARRAY_SIZE(a)   (sizeof(a) / sizeof((a)[0]))
 #define MSG(args...)    fprintf(stderr, args) /* message that is destined to the user */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
-#define PROTOCOL_VERSION    1
+#define PROTOCOL_VERSION 2
 
 #define PKT_PUSH_DATA   0
 #define PKT_PUSH_ACK    1
