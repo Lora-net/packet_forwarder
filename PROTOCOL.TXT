@@ -331,7 +331,8 @@ occured.
  0      | protocol version = 2
  1-2    | same token as the PULL_RESP packet to acknowledge
  3      | TX_ACK identifier 0x05
- 4-end  | [optional] JSON object, starting with {, ending with }, see section 6
+ 4-11   | Gateway unique identifier (MAC address)
+ 12-end | [optional] JSON object, starting with {, ending with }, see section 6
 
 6. Downstream JSON data structure
 ----------------------------------
