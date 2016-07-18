@@ -37,7 +37,7 @@ The packets are [9-n] bytes long, and have following payload content:
 |    Id    | PktCnt[31:24] | PktCnt[23:16] | PktCnt[15:8]  | PktCnt[7:0]   | P | E | R |FCS| 0 | 1 |...| n |
 +----------+---------------+---------------+---------------+---------------+---+---+---+---+---+---+---+---+
 
-Id            : User defined ID to differenciate sender at receiver side. (8 bits)
+Id            : User defined ID to differentiate sender at receiver side. (8 bits)
 PktCnt        : Packet counter incremented at each transmission. (32 bits)
 ‘P’, ‘E’, ‘R’ : ASCII values for characters 'P', 'E' and 'R'.
 FCS           : Checksum: 8-bits sum of Id, PktCnt[31 :24] , PktCnt[23 :16] , PktCnt[15 :8] , PktCnt[7:0], ‘P’,’E’,’R’
