@@ -49,69 +49,6 @@ static pthread_mutex_t mx_jit_queue = PTHREAD_MUTEX_INITIALIZER; /* control acce
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */
-static uint32_t time_on_air(struct lgw_pkt_tx_s *packet, bool isBeacon) {
-    uint8_t SF, H, DE;
-    uint16_t BW;
-    uint32_t payloadSymbNb, Tpacket;
-    double Tsym, Tpreamble, Tpayload;
-
-    switch (packet->bandwidth) {
-        case BW_125KHZ:
-            BW = 125;
-            break;
-        case BW_250KHZ:
-            BW = 250;
-            break;
-        case BW_500KHZ:
-            BW = 500;
-            break;
-        default:
-            MSG("ERROR: Cannot compute time on air for this packet, unsupported bandwidth (%u)\n", packet->bandwidth);
-            return 0;
-    }
-
-    switch (packet->datarate) {
-        case DR_LORA_SF7:
-            SF = 7;
-            break;
-        case DR_LORA_SF8:
-            SF = 8;
-            break;
-        case DR_LORA_SF9:
-            SF = 9;
-            break;
-        case DR_LORA_SF10:
-            SF = 10;
-            break;
-        case DR_LORA_SF11:
-            SF = 11;
-            break;
-        case DR_LORA_SF12:
-            SF = 12;
-            break;
-        default:
-            MSG("ERROR: Cannot compute time on air for this packet, unsupported datarate (%u)\n", packet->datarate);
-            return 0;
-    }
-
-    /* Duration of 1 symbol */
-    Tsym = pow(2, SF) / BW;
-
-    /* Duration of preamble */
-    Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
-
-    /* Duration of payload */
-    H = (isBeacon==false)?0:1; /* header is always enabled, except for beacons */
-    DE = (SF >= 11)?1:0; /* Low datarate optimization enabled for SF11 and SF12 */
-
-    payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16 - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
-
-    Tpayload = payloadSymbNb * Tsym;
-
-    Tpacket = Tpreamble + Tpayload;
-
-    return Tpacket;
-}
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ----------------------------------------- */
@@ -218,7 +155,7 @@ enum jit_error_e jit_enqueue(struct jit_queue_s *queue, struct timeval *time, st
         case JIT_PKT_TYPE_DOWNLINK_CLASS_B:
         case JIT_PKT_TYPE_DOWNLINK_CLASS_C:
             packet_pre_delay = TX_START_DELAY + TX_JIT_DELAY;
-            packet_post_delay = time_on_air(packet, false) * 1000UL; /* in us */
+            packet_post_delay = lgw_time_on_air(packet) * 1000UL; /* in us */
             break;
         case JIT_PKT_TYPE_BEACON:
             /* As defined in LoRaWAN spec */

@@ -83,6 +83,14 @@ Please refer to the script header for more details.
 5. Changelog
 -------------
 
+### v3.1.0 - 2016-09-07 ###
+
+* Updated "Listen-Before-Talk" JSON configuration to match with LBT rework.
+* Added TX Notch Filter JSON configuration.
+* Updated Parson library to latest version
+* Fixed Class-B beacon CRC-16 calculation
+* Removed JiT time_on_air local function, and use lgw_time_on_air() function
+
 ### v3.0.0 - 2016-05-19 ###
 
 * Merged all different flavours of packet forwarder into one unique lora_pkt_fwd
@@ -90,8 +98,8 @@ Please refer to the script header for more details.
         global_conf.json.XXX file provided in lora_pkt_fwd/cfg.
 * Added downlink "just-in-time" scheduling to optimize downlink capacity.
 * Updated Gateway <-> NetworkServer protocol to describe the new format of
-  "tx_ack" message.
-* Added "Listen-Before-Talk" configuration.
+"tx_ack" message.
+* Added "Listen-Before-Talk" JSON configuration.
 * Splitted reset_pkt_fwd.sh script in 2 different scripts:
     - reset_lgw.sh, provided with the HAL (lora_gateway)
     - update_gwid.sh, provided with lora_pkt_fwd

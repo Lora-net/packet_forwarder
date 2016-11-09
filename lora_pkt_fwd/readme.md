@@ -194,9 +194,8 @@ configured in 2 different ways:
     - Real time mode: when GPS is disabled, the value read in sample register is
       the actual concentrator counter value.
     - PPS mode: when GPS is enabled, the value read in sample register is the
-      value
-that the concentrator counter had when last GPS’s PPS occurred. So this changes
-every second only.
+      value that the concentrator counter had when last GPS’s PPS occurred. So
+      this changes every second only.
 As in our case GPS is enabled (LGW_GPS_EN==1), we need to have a way to get the
 actual concentrator current time, at any time.
 For this, a new thread has been added to the packet forwarder (thread_timersync)

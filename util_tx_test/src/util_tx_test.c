@@ -415,8 +415,10 @@ int main(int argc, char **argv)
     }
 
     /* Preamble size */
-    memcpy((void *)(databuf + buff_index), (void *)",\"prea\":8", 9);
-    buff_index += 9;
+    if (strcmp(mod, "LORA") == 0) {
+        memcpy((void *)(databuf + buff_index), (void *)",\"prea\":8", 9);
+        buff_index += 9;
+    }
 
     /* payload size */
     i = snprintf((char *)(databuf + buff_index), 12, ",\"size\":%i", payload_size);

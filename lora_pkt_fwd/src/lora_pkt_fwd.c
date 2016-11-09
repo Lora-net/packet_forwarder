@@ -99,7 +99,7 @@ Maintainer: Michael Coracin
 #define MIN_LORA_PREAMB 6 /* minimum Lora preamble length for this application */
 #define STD_LORA_PREAMB 8
 #define MIN_FSK_PREAMB  3 /* minimum FSK preamble length for this application */
-#define STD_FSK_PREAMB  4
+#define STD_FSK_PREAMB  5
 
 #define STATUS_SIZE     200
 #define TX_BUFF_SIZE    ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
@@ -225,7 +225,7 @@ static int parse_SX1301_configuration(const char * conf_file);
 
 static int parse_gateway_configuration(const char * conf_file);
 
-static uint16_t crc_ccit(const uint8_t * data, unsigned size);
+static uint16_t crc16(const uint8_t * data, unsigned size);
 
 static double difftimespec(struct timespec end, struct timespec beginning);
 
@@ -256,7 +256,10 @@ static int parse_SX1301_configuration(const char * conf_file) {
     const char conf_obj_name[] = "SX1301_conf";
     JSON_Value *root_val = NULL;
     JSON_Object *conf_obj = NULL;
+    JSON_Object *conf_lbt_obj = NULL;
+    JSON_Object *conf_lbtchan_obj = NULL;
     JSON_Value *val = NULL;
+    JSON_Array *conf_array = NULL;
     struct lgw_conf_board_s boardconf;
     struct lgw_conf_lbt_s lbtconf;
     struct lgw_conf_rxrf_s rfconf;
@@ -298,77 +301,92 @@ static int parse_SX1301_configuration(const char * conf_file) {
     MSG("INFO: lorawan_public %d, clksrc %d\n", boardconf.lorawan_public, boardconf.clksrc);
     /* all parameters parsed, submitting configuration to the HAL */
     if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
-        MSG("WARNING: Failed to configure board\n");
+        MSG("ERROR: Failed to configure board\n");
+        return -1;
     }
 
-    /* LBT struct*/
+    /* set LBT configuration */
     memset(&lbtconf, 0, sizeof lbtconf); /* initialize configuration structure */
-    val = json_object_get_value(conf_obj, "lbt_cfg"); /* fetch value (if possible) */
-    if (json_value_get_type(val) != JSONObject) {
+    conf_lbt_obj = json_object_get_object(conf_obj, "lbt_cfg"); /* fetch value (if possible) */
+    if (conf_lbt_obj == NULL) {
         MSG("INFO: no configuration for LBT\n");
     } else {
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.enable"); /* fetch value (if possible) */
+        val = json_object_get_value(conf_lbt_obj, "enable"); /* fetch value (if possible) */
         if (json_value_get_type(val) == JSONBoolean) {
             lbtconf.enable = (bool)json_value_get_boolean(val);
         } else {
             MSG("WARNING: Data type for lbt_cfg.enable seems wrong, please check\n");
             lbtconf.enable = false;
         }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.rssi_target"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.rssi_target = (uint8_t)json_value_get_number(val);
+        if (lbtconf.enable == true) {
+            val = json_object_get_value(conf_lbt_obj, "rssi_target"); /* fetch value (if possible) */
+            if (json_value_get_type(val) == JSONNumber) {
+                lbtconf.rssi_target = (int8_t)json_value_get_number(val);
+            } else {
+                MSG("WARNING: Data type for lbt_cfg.rssi_target seems wrong, please check\n");
+                lbtconf.rssi_target = 0;
+            }
+            val = json_object_get_value(conf_lbt_obj, "sx127x_rssi_offset"); /* fetch value (if possible) */
+            if (json_value_get_type(val) == JSONNumber) {
+                lbtconf.rssi_offset = (int8_t)json_value_get_number(val);
+            } else {
+                MSG("WARNING: Data type for lbt_cfg.sx127x_rssi_offset seems wrong, please check\n");
+                lbtconf.rssi_offset = 0;
+            }
+            /* set LBT channels configuration */
+            conf_array = json_object_get_array(conf_lbt_obj, "chan_cfg");
+            if (conf_array != NULL) {
+                lbtconf.nb_channel = json_array_get_count( conf_array );
+                MSG("INFO: %u LBT channels configured\n", lbtconf.nb_channel);
+            }
+            for (i = 0; i < (int)lbtconf.nb_channel; i++) {
+                /* Sanity check */
+                if (i >= LBT_CHANNEL_FREQ_NB)
+                {
+                    MSG("ERROR: LBT channel %d not supported, skip it\n", i );
+                    break;
+                }
+                /* Get LBT channel configuration object from array */
+                conf_lbtchan_obj = json_array_get_object(conf_array, i);
+
+                /* Channel frequency */
+                val = json_object_dotget_value(conf_lbtchan_obj, "freq_hz"); /* fetch value (if possible) */
+                if (json_value_get_type(val) == JSONNumber) {
+                    lbtconf.channels[i].freq_hz = (uint32_t)json_value_get_number(val);
+                } else {
+                    MSG("WARNING: Data type for lbt_cfg.channels[%d].freq_hz seems wrong, please check\n", i);
+                    lbtconf.channels[i].freq_hz = 0;
+                }
+
+                /* Channel scan time */
+                val = json_object_dotget_value(conf_lbtchan_obj, "scan_time_us"); /* fetch value (if possible) */
+                if (json_value_get_type(val) == JSONNumber) {
+                    lbtconf.channels[i].scan_time_us = (uint16_t)json_value_get_number(val);
+                } else {
+                    MSG("WARNING: Data type for lbt_cfg.channels[%d].scan_time_us seems wrong, please check\n", i);
+                    lbtconf.channels[i].scan_time_us = 0;
+                }
+            }
+
+            /* all parameters parsed, submitting configuration to the HAL */
+            if (lgw_lbt_setconf(lbtconf) != LGW_HAL_SUCCESS) {
+                MSG("ERROR: Failed to configure LBT\n");
+                return -1;
+            }
         } else {
-            MSG("WARNING: Data type for lbt_cfg.rssi_target seems wrong, please check\n");
-            lbtconf.rssi_target = 0;
+            MSG("INFO: LBT is disabled\n");
         }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.nb_channel"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.nb_channel = (uint8_t)json_value_get_number(val);
-        } else {
-            MSG("WARNING: Data type for lbt_cfg.nb_channel seems wrong, please check\n");
-            lbtconf.nb_channel = 0;
-        }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.start_freq"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.start_freq = (uint32_t)json_value_get_number(val);
-        } else {
-            MSG("WARNING: Data type for lbt_cfg.start_freq seems wrong, please check\n");
-            lbtconf.start_freq = 0;
-        }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.scan_time_us"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.scan_time_us = (uint32_t)json_value_get_number(val);
-        } else {
-            MSG("WARNING: Data type for lbt_cfg.scan_time_us seems wrong, please check\n");
-            lbtconf.scan_time_us = 0;
-        }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.tx_delay_1ch_us"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.tx_delay_1ch_us = (uint32_t)json_value_get_number(val);
-        } else {
-            MSG("WARNING: Data type for lbt_cfg.tx_delay_1ch_us seems wrong, please check\n");
-            lbtconf.tx_delay_1ch_us = 0;
-        }
-        val = json_object_dotget_value(conf_obj, "lbt_cfg.tx_delay_2ch_us"); /* fetch value (if possible) */
-        if (json_value_get_type(val) == JSONNumber) {
-            lbtconf.tx_delay_2ch_us = (uint32_t)json_value_get_number(val);
-        } else {
-            MSG("WARNING: Data type for lbt_cfg.tx_delay_2ch_us seems wrong, please check\n");
-            lbtconf.tx_delay_2ch_us = 0;
-        }
-    }
-    /* all parameters parsed, submitting configuration to the HAL */
-    if (lgw_lbt_setconf(lbtconf) != LGW_HAL_SUCCESS) {
-        MSG("WARNING: Failed to configure lbt\n");
     }
 
     /* set antenna gain configuration */
     val = json_object_get_value(conf_obj, "antenna_gain"); /* fetch value (if possible) */
-    if (json_value_get_type(val) == JSONNumber) {
-        antenna_gain = (int8_t)json_value_get_number(val);
-    } else {
-        MSG("WARNING: Data type for antenna_gain seems wrong, please check\n");
-        antenna_gain = 0;
+    if (val != NULL) {
+        if (json_value_get_type(val) == JSONNumber) {
+            antenna_gain = (int8_t)json_value_get_number(val);
+        } else {
+            MSG("WARNING: Data type for antenna_gain seems wrong, please check\n");
+            antenna_gain = 0;
+        }
     }
     MSG("INFO: antenna_gain %d dBi\n", antenna_gain);
 
@@ -391,42 +409,47 @@ static int parse_SX1301_configuration(const char * conf_file) {
             MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
             txlut.lut[i].pa_gain = 0;
         }
-                snprintf(param_name, sizeof param_name, "tx_lut_%i.dac_gain", i);
-                val = json_object_dotget_value(conf_obj, param_name);
-                if (json_value_get_type(val) == JSONNumber) {
-                        txlut.lut[i].dac_gain = (uint8_t)json_value_get_number(val);
-                } else {
-                        txlut.lut[i].dac_gain = 3; /* This is the only dac_gain supported for now */
-                }
-                snprintf(param_name, sizeof param_name, "tx_lut_%i.dig_gain", i);
-                val = json_object_dotget_value(conf_obj, param_name);
-                if (json_value_get_type(val) == JSONNumber) {
-                        txlut.lut[i].dig_gain = (uint8_t)json_value_get_number(val);
-                } else {
+        snprintf(param_name, sizeof param_name, "tx_lut_%i.dac_gain", i);
+        val = json_object_dotget_value(conf_obj, param_name);
+        if (json_value_get_type(val) == JSONNumber) {
+            txlut.lut[i].dac_gain = (uint8_t)json_value_get_number(val);
+        } else {
+            txlut.lut[i].dac_gain = 3; /* This is the only dac_gain supported for now */
+        }
+        snprintf(param_name, sizeof param_name, "tx_lut_%i.dig_gain", i);
+        val = json_object_dotget_value(conf_obj, param_name);
+        if (json_value_get_type(val) == JSONNumber) {
+            txlut.lut[i].dig_gain = (uint8_t)json_value_get_number(val);
+        } else {
             MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
-                        txlut.lut[i].dig_gain = 0;
-                }
-                snprintf(param_name, sizeof param_name, "tx_lut_%i.mix_gain", i);
-                val = json_object_dotget_value(conf_obj, param_name);
-                if (json_value_get_type(val) == JSONNumber) {
-                        txlut.lut[i].mix_gain = (uint8_t)json_value_get_number(val);
-                } else {
+            txlut.lut[i].dig_gain = 0;
+        }
+        snprintf(param_name, sizeof param_name, "tx_lut_%i.mix_gain", i);
+        val = json_object_dotget_value(conf_obj, param_name);
+        if (json_value_get_type(val) == JSONNumber) {
+            txlut.lut[i].mix_gain = (uint8_t)json_value_get_number(val);
+        } else {
             MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
-                        txlut.lut[i].mix_gain = 0;
-                }
-                snprintf(param_name, sizeof param_name, "tx_lut_%i.rf_power", i);
-                val = json_object_dotget_value(conf_obj, param_name);
-                if (json_value_get_type(val) == JSONNumber) {
-                        txlut.lut[i].rf_power = (int8_t)json_value_get_number(val);
-                } else {
+            txlut.lut[i].mix_gain = 0;
+        }
+        snprintf(param_name, sizeof param_name, "tx_lut_%i.rf_power", i);
+        val = json_object_dotget_value(conf_obj, param_name);
+        if (json_value_get_type(val) == JSONNumber) {
+            txlut.lut[i].rf_power = (int8_t)json_value_get_number(val);
+        } else {
             MSG("WARNING: Data type for %s[%d] seems wrong, please check\n", param_name, i);
-                        txlut.lut[i].rf_power = 0;
-                }
+            txlut.lut[i].rf_power = 0;
+        }
     }
     /* all parameters parsed, submitting configuration to the HAL */
-    MSG("INFO: Configuring TX LUT with %u indexes\n", txlut.size);
+    if (txlut.size > 0) {
+        MSG("INFO: Configuring TX LUT with %u indexes\n", txlut.size);
         if (lgw_txgain_setconf(&txlut) != LGW_HAL_SUCCESS) {
-                MSG("WARNING: Failed to configure concentrator TX Gain LUT\n");
+            MSG("ERROR: Failed to configure concentrator TX Gain LUT\n");
+            return -1;
+        }
+    } else {
+        MSG("WARNING: No TX gain LUT defined\n");
     }
 
     /* set configuration for RF chains */
@@ -475,15 +498,19 @@ static int parse_SX1301_configuration(const char * conf_file) {
                     if ((tx_freq_min[i] == 0) || (tx_freq_max[i] == 0)) {
                         MSG("WARNING: no frequency range specified for TX rf chain %d\n", i);
                     }
+                    /* ... and the notch filter frequency to be set */
+                    snprintf(param_name, sizeof param_name, "radio_%i.tx_notch_freq", i);
+                    rfconf.tx_notch_freq = (uint32_t)json_object_dotget_number(conf_obj, param_name);
                 }
             } else {
                 rfconf.tx_enable = false;
             }
-            MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable);
+            MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d, tx_notch_freq %u\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable, rfconf.tx_notch_freq);
         }
         /* all parameters parsed, submitting configuration to the HAL */
         if (lgw_rxrf_setconf(i, rfconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for radio %i\n", i);
+            MSG("ERROR: invalid configuration for radio %i\n", i);
+            return -1;
         }
     }
 
@@ -516,7 +543,8 @@ static int parse_SX1301_configuration(const char * conf_file) {
         }
         /* all parameters parsed, submitting configuration to the HAL */
         if (lgw_rxif_setconf(i, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for Lora multi-SF channel %i\n", i);
+            MSG("ERROR: invalid configuration for Lora multi-SF channel %i\n", i);
+            return -1;
         }
     }
 
@@ -557,7 +585,8 @@ static int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: Lora std channel> radio %i, IF %i Hz, %u Hz bw, SF %u\n", ifconf.rf_chain, ifconf.freq_hz, bw, sf);
         }
         if (lgw_rxif_setconf(8, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for Lora standard channel\n");
+            MSG("ERROR: invalid configuration for Lora standard channel\n");
+            return -1;
         }
     }
 
@@ -599,10 +628,12 @@ static int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: FSK channel> radio %i, IF %i Hz, %u Hz bw, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
         }
         if (lgw_rxif_setconf(9, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for FSK channel\n");
+            MSG("ERROR: invalid configuration for FSK channel\n");
+            return -1;
         }
     }
     json_value_free(root_val);
+
     return 0;
 }
 
@@ -756,9 +787,9 @@ static int parse_gateway_configuration(const char * conf_file) {
     return 0;
 }
 
-static uint16_t crc_ccit(const uint8_t * data, unsigned size) {
-    const uint16_t crc_poly = 0x1021; /* CCITT */
-    const uint16_t init_val = 0xFFFF; /* CCITT */
+static uint16_t crc16(const uint8_t * data, unsigned size) {
+    const uint16_t crc_poly = 0x1021;
+    const uint16_t init_val = 0x0000;
     uint16_t x = init_val;
     unsigned i, j;
 
@@ -775,28 +806,6 @@ static uint16_t crc_ccit(const uint8_t * data, unsigned size) {
 
     return x;
 }
-
-#if 0
-static uint8_t crc8_ccit(const uint8_t * data, unsigned size) {
-    const uint8_t crc_poly = 0x87; /* CCITT */
-    const uint8_t init_val = 0xFF; /* CCITT */
-    uint8_t x = init_val;
-    unsigned i, j;
-
-    if (data == NULL)  {
-        return 0;
-    }
-
-    for (i=0; i<size; ++i) {
-        x ^= data[i];
-        for (j=0; j<8; ++j) {
-            x = (x & 0x80) ? (x<<1) ^ crc_poly : (x<<1);
-        }
-    }
-
-    return x;
-}
-#endif
 
 static double difftimespec(struct timespec end, struct timespec beginning) {
     double x;
@@ -900,6 +909,7 @@ int main(void)
 {
     struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
     int i; /* loop variable and temporary variable for return value */
+    int x;
 
     /* configuration file related */
     char *global_cfg_path= "global_conf.json"; /* contain global (typ. network-wide) configuration */
@@ -950,7 +960,6 @@ int main(void)
     /* GPS coordinates variables */
     bool coord_ok = false;
     struct coord_s cp_gps_coord = {0.0, 0.0, 0};
-    //struct coord_s cp_gps_err;
 
     /* statistics variable */
     time_t t;
@@ -978,12 +987,24 @@ int main(void)
     if (access(debug_cfg_path, R_OK) == 0) { /* if there is a debug conf, parse only the debug conf */
         MSG("INFO: found debug configuration file %s, parsing it\n", debug_cfg_path);
         MSG("INFO: other configuration files will be ignored\n");
-        parse_SX1301_configuration(debug_cfg_path);
-        parse_gateway_configuration(debug_cfg_path);
+        x = parse_SX1301_configuration(debug_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
+        x = parse_gateway_configuration(debug_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
     } else if (access(global_cfg_path, R_OK) == 0) { /* if there is a global conf, parse it and then try to parse local conf  */
         MSG("INFO: found global configuration file %s, parsing it\n", global_cfg_path);
-        parse_SX1301_configuration(global_cfg_path);
-        parse_gateway_configuration(global_cfg_path);
+        x = parse_SX1301_configuration(global_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
+        x = parse_gateway_configuration(global_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
         if (access(local_cfg_path, R_OK) == 0) {
             MSG("INFO: found local configuration file %s, parsing it\n", local_cfg_path);
             MSG("INFO: redefined parameters will overwrite global parameters\n");
@@ -992,8 +1013,14 @@ int main(void)
         }
     } else if (access(local_cfg_path, R_OK) == 0) { /* if there is only a local conf, parse it and that's all */
         MSG("INFO: found local configuration file %s, parsing it\n", local_cfg_path);
-        parse_SX1301_configuration(local_cfg_path);
-        parse_gateway_configuration(local_cfg_path);
+        x = parse_SX1301_configuration(local_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
+        x = parse_gateway_configuration(local_cfg_path);
+        if (x != 0) {
+            exit(EXIT_FAILURE);
+        }
     } else {
         MSG("ERROR: [main] failed to find any configuration file named %s, %s OR %s\n", global_cfg_path, local_cfg_path, debug_cfg_path);
         exit(EXIT_FAILURE);
@@ -1233,15 +1260,12 @@ int main(void)
         if (gps_enabled == true) {
             pthread_mutex_lock(&mx_meas_gps);
             coord_ok = gps_coord_valid;
-            cp_gps_coord  =  meas_gps_coord;
-            //cp_gps_err    =  meas_gps_err;
+            cp_gps_coord = meas_gps_coord;
             pthread_mutex_unlock(&mx_meas_gps);
         }
 
         /* overwrite with reference coordinates if function is enabled */
         if (gps_fake_enable == true) {
-            gps_enabled = true;
-            coord_ok = true;
             cp_gps_coord = reference_coord;
         }
 
@@ -1277,13 +1301,13 @@ int main(void)
             } else {
                 printf("# Invalid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
             }
-            if (gps_fake_enable == true) {
-                printf("# GPS *FAKE* coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
-            } else if (coord_ok == true) {
+            if (coord_ok == true) {
                 printf("# GPS coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
             } else {
                 printf("# no valid GPS coordinates available yet\n");
             }
+        } else if (gps_fake_enable == true) {
+            printf("# GPS *FAKE* coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
         } else {
             printf("# GPS sync is disabled\n");
         }
@@ -1291,7 +1315,7 @@ int main(void)
 
         /* generate a JSON report (will be sent to server by upstream thread) */
         pthread_mutex_lock(&mx_stat_rep);
-        if ((gps_enabled == true) && (coord_ok == true)) {
+        if (((gps_enabled == true) && (coord_ok == true)) || (gps_fake_enable == true)) {
             snprintf(status_report, STATUS_SIZE, "\"stat\":{\"time\":\"%s\",\"lati\":%.5f,\"long\":%.5f,\"alti\":%i,\"rxnb\":%u,\"rxok\":%u,\"rxfw\":%u,\"ackr\":%.1f,\"dwnb\":%u,\"txnb\":%u}", stat_timestamp, cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt, cp_nb_rx_rcv, cp_nb_rx_ok, cp_up_pkt_fwd, 100.0 * up_ack_ratio, cp_dw_dgram_rcv, cp_nb_tx_ok);
         } else {
             snprintf(status_report, STATUS_SIZE, "\"stat\":{\"time\":\"%s\",\"rxnb\":%u,\"rxok\":%u,\"rxfw\":%u,\"ackr\":%.1f,\"dwnb\":%u,\"txnb\":%u}", stat_timestamp, cp_nb_rx_rcv, cp_nb_rx_ok, cp_up_pkt_fwd, 100.0 * up_ack_ratio, cp_dw_dgram_rcv, cp_nb_tx_ok);
@@ -1871,7 +1895,7 @@ void thread_down(void) {
     beacon_pkt.payload[14] = 0xFF & (field_longitude >> 16);
 
     /* CRC of the optional beacon fileds */
-    field_crc2 = crc_ccit((beacon_pkt.payload + 8), 7);
+    field_crc2 = crc16((beacon_pkt.payload + 8), 7);
     beacon_pkt.payload[15] = 0xFF &  field_crc2;
     beacon_pkt.payload[16] = 0xFF & (field_crc2 >>  8);
 
@@ -1954,7 +1978,7 @@ void thread_down(void) {
                     beacon_pkt.payload[5] = 0xFF & (next_beacon_gps_time.tv_sec >> 24);
 
                     /* calculate CRC */
-                    field_crc1 = crc_ccit(beacon_pkt.payload, 6); /* CRC for the first 6 bytes */
+                    field_crc1 = crc16(beacon_pkt.payload, 6); /* CRC for the first 6 bytes */
                     beacon_pkt.payload[6] = 0xFF & field_crc1;
                     beacon_pkt.payload[7] = 0xFF & (field_crc1 >> 8);
 
@@ -1975,7 +1999,7 @@ void thread_down(void) {
 
                         /* display beacon payload */
                         MSG("--- Beacon queued (count_us=%u) - payload: ---\n", beacon_pkt.count_us);
-                        for (i=0; i<24; ++i) {
+                        for (i=0; i<beacon_pkt.size; ++i) {
                             MSG("0x%02X", beacon_pkt.payload[i]);
                             if (i%8 == 7) {
                                 MSG("\n");

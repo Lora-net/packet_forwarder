@@ -4,12 +4,14 @@
         "clksrc": 1, /* radio_1 provides clock to concentrator */
         "lbt_cfg": {
             "enable": false,
-            "rssi_target": 160, /* rssi in dBm = -lbt_rssi_target/2 */
-            "nb_channel": 1,
-            "start_freq": 869525000,
-            "scan_time_us": 5000,
-            "tx_delay_1ch_us": 4000000,
-            "tx_delay_2ch_us": 4000000
+            "rssi_target": -80, /* dBm */
+            "chan_cfg":[ /* 8 channels maximum */
+                { "freq_hz": 867100000, "scan_time_us": 128 },
+                { "freq_hz": 867300000, "scan_time_us": 5000 },
+                { "freq_hz": 867500000, "scan_time_us": 128 },
+                { "freq_hz": 869525000, "scan_time_us": 128 }
+            ],
+            "sx127x_rssi_offset": -4 /* dB */
         },
         "antenna_gain": 0, /* antenna gain, in dBi */
         "radio_0": {
@@ -18,6 +20,7 @@
             "freq": 867500000,
             "rssi_offset": -166.0,
             "tx_enable": true,
+            "tx_notch_freq": 129000, /* [126..250] KHz */
             "tx_freq_min": 863000000,
             "tx_freq_max": 870000000
         },
