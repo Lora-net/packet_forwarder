@@ -16,7 +16,7 @@ get_ether() {
     local iface
     iface="$1"
     ip link show ${iface} | sed -nE \
-        's,^.*ether ([^[:space:]]+)[[:space:]].*$,\1,p'
+        's,^.*ether ([^[:space:]]+)[[:space:]].*$,\1,p'|tr '[a-z]' '[A-Z]'
 }
 
 get_ether_first3() {
@@ -61,7 +61,7 @@ iot_sk_update_gwid() {
     # replace last 8 digits of default gateway ID by actual GWID, in given
     # JSON configuration file
     sed -i.bak -E \
-        "s/(^[[:space:]]*\"gateway_ID\":[[:space:]]*\").{16}\"[[:space:]]*(,?).*$/\1${gwid}\2/" ${conf}
+        "s/(^[[:space:]]*\"gateway_ID\":[[:space:]]*\").{16}\"[[:space:]]*(,?).*$/\1${gwid}\"\2/" ${conf}
 
     echo "Gateway_ID set to ${gwid} in file ${conf}"
     echo "   To roll back: mv ${conf}.bak ${conf}"
