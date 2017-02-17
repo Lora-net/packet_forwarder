@@ -131,6 +131,7 @@ and associated metadata with the following fields:
  Name |  Type  | Function
 :----:|:------:|--------------------------------------------------------------
  time | string | UTC time of pkt RX, us precision, ISO 8601 'compact' format
+ tmms | number | GPS time of pkt RX, number of milliseconds since 06.Jan.1980
  tmst | number | Internal timestamp of "RX finished" event (32b unsigned)
  freq | number | RX central frequency in MHz (unsigned float, Hz precision)
  chan | number | Concentrator "IF" channel used for RX (unsigned integer)
@@ -351,7 +352,7 @@ That object contain a RF packet to be emitted and associated metadata with the f
 :----:|:------:|--------------------------------------------------------------
  imme | bool   | Send packet immediately (will ignore tmst & time)
  tmst | number | Send packet on a certain timestamp value (will ignore time)
- time | string | Send packet at a certain time (GPS synchronization required)
+ tmms | number | Send packet at a certain GPS time (GPS synchronization required)
  freq | number | TX central frequency in MHz (unsigned float, Hz precision)
  rfch | number | Concentrator "RF chain" used for TX (unsigned integer)
  powe | number | TX output power in dBm (unsigned integer, dBm precision)
@@ -437,6 +438,10 @@ Examples (white-spaces, indentation and newlines added for readability):
 
 7. Revisions
 -------------
+
+### v1.4 ###
+* Added "tmms" field for GPS time as a monotonic number of milliseconds
+ellapsed since January 6th, 1980 (GPS Epoch). No leap second.
 
 ### v1.3 ###
 

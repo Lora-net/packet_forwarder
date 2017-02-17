@@ -83,6 +83,17 @@ Please refer to the script header for more details.
 5. Changelog
 -------------
 
+### v4.0.0 - 2017-01-10 ###
+
+* Added Class-B support, as defined in LoRaWAN v1.1
+* Downlink only support "tmst" or "tmms" timestamp. "time" is not supported
+anymore ("time" field is kept in Uplink as an informative field).
+* Reworked thread_gps to handle GPS UBX messages for native GPS time.
+* Updated Gateway <-> NetworkServer protocol to describe the new "tmms" field.
+* Updated global_conf.PCB286*.json to remove indexes of the TX gain LUT above
+20dBm. Use PCB336 (aka GW v1.5) to comply with ETSI TX mask between 20dBm and
+27dBm.
+
 ### v3.1.0 - 2016-09-07 ###
 
 * Updated "Listen-Before-Talk" JSON configuration to match with LBT rework.

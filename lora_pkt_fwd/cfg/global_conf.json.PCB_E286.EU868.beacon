@@ -166,34 +166,6 @@
             "mix_gain": 9,
             "rf_power": 20,
             "dig_gain": 0
-        },
-        "tx_lut_12": {
-            /* TX gain table, index 12 */
-            "pa_gain": 3,
-            "mix_gain": 10,
-            "rf_power": 23,
-            "dig_gain": 0
-        },
-        "tx_lut_13": {
-            /* TX gain table, index 13 */
-            "pa_gain": 3,
-            "mix_gain": 11,
-            "rf_power": 25,
-            "dig_gain": 0
-        },
-        "tx_lut_14": {
-            /* TX gain table, index 14 */
-            "pa_gain": 3,
-            "mix_gain": 12,
-            "rf_power": 26,
-            "dig_gain": 0
-        },
-        "tx_lut_15": {
-            /* TX gain table, index 15 */
-            "pa_gain": 3,
-            "mix_gain": 14,
-            "rf_power": 27,
-            "dig_gain": 0
         }
     },
 
@@ -219,7 +191,11 @@
         "ref_altitude": 0,
         /* Beaconing parameters */
         "beacon_period": 128,
-        "beacon_freq_hz": 869525000
+        "beacon_freq_hz": 869525000,
+        "beacon_datarate": 9,
+        "beacon_bw_hz": 125000,
+        "beacon_power": 14,
+        "beacon_infodesc": 0
     }
 }
 

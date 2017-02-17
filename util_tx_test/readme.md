@@ -33,6 +33,7 @@ Press Ctrl+C to stop the application before that.
 Use the -h option to get help and details about available options.
 
 The packets are [9-n] bytes long, and have following payload content:
+```
 +----------+---------------+---------------+---------------+---------------+---+---+---+---+---+---+---+---+
 |    Id    | PktCnt[31:24] | PktCnt[23:16] | PktCnt[15:8]  | PktCnt[7:0]   | P | E | R |FCS| 0 | 1 |...| n |
 +----------+---------------+---------------+---------------+---------------+---+---+---+---+---+---+---+---+
@@ -42,6 +43,7 @@ PktCnt        : Packet counter incremented at each transmission. (32 bits)
 ‘P’, ‘E’, ‘R’ : ASCII values for characters 'P', 'E' and 'R'.
 FCS           : Checksum: 8-bits sum of Id, PktCnt[31 :24] , PktCnt[23 :16] , PktCnt[15 :8] , PktCnt[7:0], ‘P’,’E’,’R’
 0,1, ..., n   : Padding bytes up until user specified payload length.
+```
 
 4. License
 -----------

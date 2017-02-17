@@ -231,7 +231,11 @@
         "ref_altitude": 0,
         /* Beaconing parameters */
         "beacon_period": 128,
-        "beacon_freq_hz": 869525000
+        "beacon_freq_hz": 869525000,
+        "beacon_datarate": 9,
+        "beacon_bw_hz": 125000,
+        "beacon_power": 14,
+        "beacon_infodesc": 0
     }
 }
 
