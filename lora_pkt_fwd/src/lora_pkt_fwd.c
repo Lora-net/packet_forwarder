@@ -786,7 +786,7 @@ static int parse_gateway_configuration(const char * conf_file) {
     val = json_object_get_value(conf_obj, "beacon_period");
     if (val != NULL) {
         beacon_period = (uint32_t)json_value_get_number(val);
-        if (beacon_period < 6) {
+        if ((beacon_period > 0) && (beacon_period < 6)) {
             MSG("ERROR: invalid configuration for Beacon period, must be >= 6s\n");
             return -1;
         } else {
@@ -819,24 +819,14 @@ static int parse_gateway_configuration(const char * conf_file) {
     val = json_object_get_value(conf_obj, "beacon_datarate");
     if (val != NULL) {
         beacon_datarate = (uint8_t)json_value_get_number(val);
-        if ((beacon_datarate != 9) && (beacon_datarate != 10)) {
-            MSG("ERROR: invalid configuration for Beacon datarate\n");
-            return -1;
-        } else {
-            MSG("INFO: Beaconing datarate is set to SF%d\n", beacon_datarate);
-        }
+        MSG("INFO: Beaconing datarate is set to SF%d\n", beacon_datarate);
     }
 
     /* Beacon modulation bandwidth (optional) */
     val = json_object_get_value(conf_obj, "beacon_bw_hz");
     if (val != NULL) {
         beacon_bw_hz = (uint32_t)json_value_get_number(val);
-        if ((beacon_bw_hz != 125000) && (beacon_bw_hz != 500000)) {
-            MSG("ERROR: invalid configuration for Beacon modulation bandwidth\n");
-            return -1;
-        } else {
-            MSG("INFO: Beaconing modulation bandwidth is set to %dHz\n", beacon_bw_hz);
-        }
+        MSG("INFO: Beaconing modulation bandwidth is set to %dHz\n", beacon_bw_hz);
     }
 
     /* Beacon TX power (optional) */
@@ -1931,7 +1921,8 @@ void thread_down(void) {
     struct lgw_pkt_tx_s beacon_pkt;
     uint8_t beacon_chan;
     uint8_t beacon_loop;
-    uint8_t beacon_padding = 0;
+    size_t beacon_RFU1_size = 0;
+    size_t beacon_RFU2_size = 0;
     uint8_t beacon_pyld_idx = 0;
     time_t diff_beacon_time;
     struct timespec next_beacon_gps_time; /* gps time of next beacon packet */
@@ -1987,21 +1978,32 @@ void thread_down(void) {
             exit(EXIT_FAILURE);
     }
     switch (beacon_datarate) {
+        case 8:
+            beacon_pkt.datarate = DR_LORA_SF8;
+            beacon_RFU1_size = 1;
+            beacon_RFU2_size = 3;
+            break;
         case 9:
             beacon_pkt.datarate = DR_LORA_SF9;
-            beacon_pkt.size = 17;
-            beacon_padding = 0;
+            beacon_RFU1_size = 2;
+            beacon_RFU2_size = 0;
             break;
         case 10:
             beacon_pkt.datarate = DR_LORA_SF10;
-            beacon_pkt.size = 19;
-            beacon_padding = 1;
+            beacon_RFU1_size = 3;
+            beacon_RFU2_size = 1;
+            break;
+        case 12:
+            beacon_pkt.datarate = DR_LORA_SF12;
+            beacon_RFU1_size = 5;
+            beacon_RFU2_size = 3;
             break;
         default:
             /* should not happen */
             MSG("ERROR: unsupported datarate for beacon\n");
             exit(EXIT_FAILURE);
     }
+    beacon_pkt.size = beacon_RFU1_size + 4 + 2 + 7 + beacon_RFU2_size + 2;
     beacon_pkt.coderate = CR_LORA_4_5;
     beacon_pkt.invert_pol = false;
     beacon_pkt.preamble = 10;
@@ -2009,17 +2011,13 @@ void thread_down(void) {
     beacon_pkt.no_header = true;
 
     /* network common part beacon fields (little endian) */
-    beacon_pyld_idx = 0;
-    beacon_pkt.payload[beacon_pyld_idx++] = 0x0; /* RFU */
-    beacon_pkt.payload[beacon_pyld_idx++] = 0x0; /* RFU */
-    if (beacon_padding == 1) {
-        beacon_pkt.payload[beacon_pyld_idx++] = 0x0; /* RFU */
+    for (i = 0; i < (int)beacon_RFU1_size; i++) {
+        beacon_pkt.payload[beacon_pyld_idx++] = 0x0;
     }
 
-    /* time (variable), filled later */
-    beacon_pyld_idx += 4;
-    /* crc1 (variable), filled later */
-    beacon_pyld_idx += 2;
+    /* network common part beacon fields (little endian) */
+    beacon_pyld_idx += 4; /* time (variable), filled later */
+    beacon_pyld_idx += 2; /* crc1 (variable), filled later */
 
     /* calculate the latitude and longitude that must be publicly reported */
     field_latitude = (int32_t)((reference_coord.lat / 90.0) * (double)(1<<23));
@@ -2043,12 +2041,14 @@ void thread_down(void) {
     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF &  field_longitude;
     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (field_longitude >>  8);
     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (field_longitude >> 16);
-    if (beacon_padding == 1) {
-        beacon_pkt.payload[beacon_pyld_idx++] = 0x0; /* RFU */
+
+    /* RFU */
+    for (i = 0; i < (int)beacon_RFU2_size; i++) {
+        beacon_pkt.payload[beacon_pyld_idx++] = 0x0;
     }
 
     /* CRC of the beacon gateway specific part fields */
-    field_crc2 = crc16((beacon_pkt.payload + 8 + beacon_padding), 7 + beacon_padding);
+    field_crc2 = crc16((beacon_pkt.payload + 6 + beacon_RFU1_size), 7 + beacon_RFU2_size);
     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF &  field_crc2;
     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (field_crc2 >> 8);
 
@@ -2136,23 +2136,16 @@ void thread_down(void) {
                     }
                     /* Compute beacon frequency */
                     beacon_pkt.freq_hz = beacon_freq_hz + (beacon_chan * beacon_freq_step);
-#if 0
-                    /* Compensate breacon frequency with xtal error */
-                    pthread_mutex_lock(&mx_xcorr);
-                    beacon_pkt.freq_hz = (uint32_t)(xtal_correct * (double)beacon_pkt.freq_hz);
-                    printf("beacon_pkt.freq_hz=%u (xtal_correct=%.15lf)\n", beacon_pkt.freq_hz, xtal_correct);
-                    pthread_mutex_unlock(&mx_xcorr);
-#endif
 
                     /* load time in beacon payload */
-                    beacon_pyld_idx = 2 + beacon_padding;
+                    beacon_pyld_idx = beacon_RFU1_size;
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF &  next_beacon_gps_time.tv_sec;
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (next_beacon_gps_time.tv_sec >>  8);
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (next_beacon_gps_time.tv_sec >> 16);
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (next_beacon_gps_time.tv_sec >> 24);
 
                     /* calculate CRC */
-                    field_crc1 = crc16(beacon_pkt.payload, 6 + beacon_padding); /* CRC for the network common part */
+                    field_crc1 = crc16(beacon_pkt.payload, 4 + beacon_RFU1_size); /* CRC for the network common part */
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & field_crc1;
                     beacon_pkt.payload[beacon_pyld_idx++] = 0xFF & (field_crc1 >> 8);
 
@@ -2172,19 +2165,12 @@ void thread_down(void) {
                         last_beacon_gps_time.tv_sec = next_beacon_gps_time.tv_sec; /* keep this beacon time as reference for next one to be programmed */
 
                         /* display beacon payload */
-                        MSG("--- Beacon queued (count_us=%u, freq_hz=%u) - payload: ---\n", beacon_pkt.count_us, beacon_pkt.freq_hz);
-                        for (i=0; i<beacon_pkt.size; ++i) {
-                            MSG("0x%02X", beacon_pkt.payload[i]);
-                            if (i%8 == 7) {
-                                MSG("\n");
-                            } else {
-                                MSG(" - ");
-                            }
+                        MSG("INFO: Beacon queued (count_us=%u, freq_hz=%u, size=%u):\n", beacon_pkt.count_us, beacon_pkt.freq_hz, beacon_pkt.size);
+                        printf( "   => " );
+                        for (i = 0; i < beacon_pkt.size; ++i) {
+                            MSG("%02X ", beacon_pkt.payload[i]);
                         }
-                        if (i%8 != 0) {
-                            MSG("\n");
-                        }
-                        MSG("--- end of payload ---\n");
+                        MSG("\n");
                     } else {
                         MSG_DEBUG(DEBUG_BEACON, "--> beacon queuing failed with %d\n", jit_result);
                         /* update stats */
@@ -2608,9 +2594,17 @@ void thread_jit(void) {
                 if (jit_result == JIT_ERROR_OK) {
                     /* update beacon stats */
                     if (pkt_type == JIT_PKT_TYPE_BEACON) {
+                        /* Compensate breacon frequency with xtal error */
+                        pthread_mutex_lock(&mx_xcorr);
+                        pkt.freq_hz = (uint32_t)(xtal_correct * (double)pkt.freq_hz);
+                        MSG_DEBUG(DEBUG_BEACON, "beacon_pkt.freq_hz=%u (xtal_correct=%.15lf)\n", pkt.freq_hz, xtal_correct);
+                        pthread_mutex_unlock(&mx_xcorr);
+
+                        /* Update statistics */
                         pthread_mutex_lock(&mx_meas_dw);
                         meas_nb_beacon_sent += 1;
                         pthread_mutex_unlock(&mx_meas_dw);
+                        MSG("INFO: Beacon dequeued (count_us=%u)\n", pkt.count_us);
                     }
 
                     /* check if concentrator is free for sending new packet */

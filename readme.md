@@ -83,6 +83,12 @@ Please refer to the script header for more details.
 5. Changelog
 -------------
 
+### v4.0.1 - 2017-03-16 ###
+
+* Class-B: Added xtal error correction to beacon frequency
+* Class-B: Added support for all regions to beacon frame format (various
+datarates imply different frame sizes), as defined by LoRaWAN v1.1.
+
 ### v4.0.0 - 2017-01-10 ###
 
 * Added Class-B support, as defined in LoRaWAN v1.1

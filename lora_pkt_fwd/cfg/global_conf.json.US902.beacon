@@ -110,7 +110,7 @@
         "beacon_freq_hz": 923300000,
         "beacon_freq_nb": 8,
         "beacon_freq_step": 600000,
-        "beacon_datarate": 10,
+        "beacon_datarate": 12,
         "beacon_bw_hz": 500000,
         "beacon_power": 14,
         "beacon_infodesc": 0
