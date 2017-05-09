@@ -2691,10 +2691,10 @@ static void gps_process_coords(void) {
     /* position variable */
     struct coord_s coord;
     struct coord_s gpserr;
-    int    i = lgw_gps_get(NULL, NULL, &coord, &gpserr);
 
     /* update gateway coordinates */
     pthread_mutex_lock(&mx_meas_gps);
+    int i = lgw_gps_get(NULL, NULL, &coord, &gpserr);
     if (i == LGW_GPS_SUCCESS) {
         gps_coord_valid = true;
         meas_gps_coord = coord;
