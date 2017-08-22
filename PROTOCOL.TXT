@@ -351,7 +351,7 @@ That object contain a RF packet to be emitted and associated metadata with the f
  Name |  Type  | Function
 :----:|:------:|--------------------------------------------------------------
  imme | bool   | Send packet immediately (will ignore tmst & time)
- tmst | number | Send packet on a certain timestamp value (will ignore time)
+ tmst | number | Send packet on a certain timestamp value (will ignore tmms)
  tmms | number | Send packet at a certain GPS time (GPS synchronization required)
  freq | number | TX central frequency in MHz (unsigned float, Hz precision)
  rfch | number | Concentrator "RF chain" used for TX (unsigned integer)
