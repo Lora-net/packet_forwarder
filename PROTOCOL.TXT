@@ -323,8 +323,8 @@ metadata that will have to be emitted by the gateway.
 
 That packet type is used by the gateway to send a feedback to the server
 to inform if a downlink request has been accepted or rejected by the gateway.
-The datagram may optionnaly contain a JSON string to give more details on
-acknoledge. If no JSON is present (empty string), this means than no error
+The datagram may optionally contain a JSON string to give more details on
+acknowledge. If no JSON is present (empty string), this means that no error
 occured.
 
  Bytes  | Function
@@ -346,7 +346,7 @@ The root object of PULL_RESP packet must contain an object named "txpk":
 }
 ```
 
-That object contain a RF packet to be emitted and associated metadata with the following fields: 
+That object contains a RF packet to be emitted and associated metadata with the following fields: 
 
  Name |  Type  | Function
 :----:|:------:|--------------------------------------------------------------
@@ -409,7 +409,7 @@ The root object of TX_ACK packet must contain an object named "txpk_ack":
 }
 ```
 
-That object contain status information concerning the associated PULL_RESP packet.
+That object contains status information concerning the associated PULL_RESP packet.
 
  Name |  Type  | Function
 :----:|:------:|------------------------------------------------------------------------------
@@ -421,7 +421,7 @@ The possible values of "error" field are:
 :-----------------:|---------------------------------------------------------------------
  NONE              | Packet has been programmed for downlink
  TOO_LATE          | Rejected because it was already too late to program this packet for downlink
- TOO_EARLY         | Rejected because downlink packet timestamp is too much in advance
+ TOO_EARLY         | Rejected because downlink packet timestamp is too far in advance
  COLLISION_PACKET  | Rejected because there was already a packet programmed in requested timeframe
  COLLISION_BEACON  | Rejected because there was already a beacon planned in requested timeframe
  TX_FREQ           | Rejected because requested frequency is not supported by TX RF chain
