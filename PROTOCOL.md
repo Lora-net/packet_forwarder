@@ -10,8 +10,7 @@ Basic communication protocol between Lora gateway and server
 =============================================================
 
 
-1. Introduction
-----------------
+## 1. Introduction
 
 The protocol between the gateway and the server is purposefully very basic and 
 for demonstration purpose only, or for use on private and reliable networks.
@@ -21,8 +20,7 @@ are only used for network quality assessment, not to correct UDP datagrams
 losses (no retries).
 
 
-2. System schematic and definitions
-------------------------------------
+## 2. System schematic and definitions
 
 	 ((( Y )))
 	     |
@@ -67,8 +65,7 @@ through a DNS service) and is able to receive incoming connections on a
 specific port.
 
 
-3. Upstream protocol
----------------------
+## 3. Upstream protocol
 
 ### 3.1. Sequence diagram ###
 
@@ -114,8 +111,7 @@ PUSH_DATA packets received.
  3      | PUSH_ACK identifier 0x01
 
 
-4. Upstream JSON data structure
---------------------------------
+## 4. Upstream JSON data structure
 
 The root object can contain an array named "rxpk":
 
@@ -244,8 +240,7 @@ Example (white-spaces, indentation and newlines added for readability):
 ```
 
 
-5. Downstream protocol
------------------------
+## 5. Downstream protocol
 
 ### 5.1. Sequence diagram ###
 
@@ -335,8 +330,7 @@ occured.
  4-11   | Gateway unique identifier (MAC address)
  12-end | [optional] JSON object, starting with {, ending with }, see section 6
 
-6. Downstream JSON data structure
-----------------------------------
+## 6. Downstream JSON data structure
 
 The root object of PULL_RESP packet must contain an object named "txpk":
 
@@ -436,8 +430,7 @@ Examples (white-spaces, indentation and newlines added for readability):
 }}
 ```
 
-7. Revisions
--------------
+## 7. Revisions
 
 ### v1.4 ###
 * Added "tmms" field for GPS time as a monotonic number of milliseconds
