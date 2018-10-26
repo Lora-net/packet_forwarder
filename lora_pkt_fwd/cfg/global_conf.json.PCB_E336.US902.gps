@@ -82,6 +82,118 @@
             "if": 300000,
             "bandwidth": 250000,
             "datarate": 100000
+        },
+        "tx_lut_0": {
+            /* TX gain table, index 0 */
+            "pa_gain": 0,
+            "mix_gain": 8,
+            "rf_power": -6,
+            "dig_gain": 3
+        },
+        "tx_lut_1": {
+            /* TX gain table, index 1 */
+            "pa_gain": 0,
+            "mix_gain": 10,
+            "rf_power": -3,
+            "dig_gain": 3
+        },
+        "tx_lut_2": {
+            /* TX gain table, index 2 */
+            "pa_gain": 0,
+            "mix_gain": 10,
+            "rf_power": 0,
+            "dig_gain": 1
+        },
+        "tx_lut_3": {
+            /* TX gain table, index 3 */
+            "pa_gain": 0,
+            "mix_gain": 14,
+            "rf_power": 3,
+            "dig_gain": 2
+        },
+        "tx_lut_4": {
+            /* TX gain table, index 4 */
+            "pa_gain": 1,
+            "mix_gain": 10,
+            "rf_power": 6,
+            "dig_gain": 3
+        },
+        "tx_lut_5": {
+            /* TX gain table, index 5 */
+            "pa_gain": 1,
+            "mix_gain": 12,
+            "rf_power": 10,
+            "dig_gain": 2
+        },
+        "tx_lut_6": {
+            /* TX gain table, index 6 */
+            "pa_gain": 1,
+            "mix_gain": 12,
+            "rf_power": 11,
+            "dig_gain": 1
+        },
+        "tx_lut_7": {
+            /* TX gain table, index 7 */
+            "pa_gain": 1,
+            "mix_gain": 12,
+            "rf_power": 12,
+            "dig_gain": 0
+        },
+        "tx_lut_8": {
+            /* TX gain table, index 8 */
+            "pa_gain": 1,
+            "mix_gain": 14,
+            "rf_power": 13,
+            "dig_gain": 2
+        },
+        "tx_lut_9": {
+            /* TX gain table, index 9 */
+            "pa_gain": 1,
+            "mix_gain": 13,
+            "rf_power": 14,
+            "dig_gain": 0
+        },
+        "tx_lut_10": {
+            /* TX gain table, index 10 */
+            "pa_gain": 2,
+            "mix_gain": 9,
+            "rf_power": 16,
+            "dig_gain": 2
+        },
+        "tx_lut_11": {
+            /* TX gain table, index 11 */
+            "pa_gain": 2,
+            "mix_gain": 11,
+            "rf_power": 20,
+            "dig_gain": 1
+        },
+        "tx_lut_12": {
+            /* TX gain table, index 12 */
+            "pa_gain": 2,
+            "mix_gain": 13,
+            "rf_power": 23,
+            "dig_gain": 1
+        },
+        "tx_lut_13": {
+            /* TX gain table, index 13 */
+            "pa_gain": 2,
+            "mix_gain": 15,
+            "rf_power": 25,
+            "dig_gain": 2
+        },
+        "tx_lut_14": {
+            /* TX gain table, index 14 */
+            "pa_gain": 3,
+            "mix_gain": 10,
+            "rf_power": 26,
+            "dig_gain": 2
+        },
+        "tx_lut_15": {
+            /* TX gain table, index 15 */
+            "pa_gain": 3,
+            "mix_gain": 10,
+            "rf_power": 27,
+            "dig_gain": 1
         }
     },
 
@@ -104,16 +216,7 @@
         /* GPS reference coordinates */
         "ref_latitude": 0.0,
         "ref_longitude": 0.0,
-        "ref_altitude": 0,
-        /* Beaconing parameters */
-        "beacon_period": 128,
-        "beacon_freq_hz": 923300000,
-        "beacon_freq_nb": 8,
-        "beacon_freq_step": 600000,
-        "beacon_datarate": 12,
-        "beacon_bw_hz": 500000,
-        "beacon_power": 14,
-        "beacon_infodesc": 0
+        "ref_altitude": 0
     }
 }
 
