@@ -217,7 +217,7 @@ That object contains the status of the gateway, with the following fields:
 :----:|:------:|--------------------------------------------------------------
  time | string | UTC 'system' time of the gateway, ISO 8601 'expanded' format
  lati | number | GPS latitude of the gateway in degree (float, N is +)
- long | number | GPS latitude of the gateway in degree (float, E is +)
+ long | number | GPS longitude of the gateway in degree (float, E is +)
  alti | number | GPS altitude of the gateway in meter RX (integer)
  rxnb | number | Number of radio packets received (unsigned integer)
  rxok | number | Number of radio packets received with a valid PHY CRC
