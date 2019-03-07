@@ -410,7 +410,7 @@ enum jit_error_e jit_peek(struct jit_queue_s *queue, struct timeval *time, int *
             jit_sort_queue(queue);
 
             /* restart loop  after purge to find packet to be sent */
-            i = 0;
+            i --;
             continue;
         }
 
