@@ -1041,6 +1041,9 @@ int main(void)
     float up_ack_ratio;
     float dw_ack_ratio;
 
+    /* Configure syslog to write to console, if and only if, it can't open the system logger. */
+    openlog("lora_pkt_fwd", LOG_CONS, LOG_USER);
+
     /* display version informations */
     MSG("*** Beacon Packet Forwarder for Lora Gateway ***\nVersion: " VERSION_STRING "\n");
     MSG("*** Lora concentrator HAL library version info ***\n%s\n***\n", lgw_version_info());
