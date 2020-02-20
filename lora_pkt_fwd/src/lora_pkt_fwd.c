@@ -1027,7 +1027,7 @@ int main(void)
 
     /* GPS coordinates variables */
     bool coord_ok = false;
-    struct coord_s cp_gps_coord = {0.0, 0.0, 0, 0.0};
+    struct coord_s cp_gps_coord = {0.0, 0.0, 0};
 
     /* SX1301 data variables */
     uint32_t trig_tstamp;
@@ -1385,7 +1385,7 @@ int main(void)
                 printf("# Invalid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
             }
             if (coord_ok == true) {
-                printf("# GPS coordinates: latitude %.5f, longitude %.5f, altitude %i m, hdop %.2f\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt, cp_gps_coord.hdop);
+                printf("# GPS coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
             } else {
                 printf("# no valid GPS coordinates available yet\n");
             }
