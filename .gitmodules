@@ -1,0 +1,3 @@
+[submodule "extern/lora_gateway"]
+	path = extern/lora_gateway
+	url = git@github.com:helium/lora_gateway.git
