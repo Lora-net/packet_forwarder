@@ -26,7 +26,7 @@ Maintainer: Michael Coracin
 #define DEBUG_BEACON    0
 #define DEBUG_LOG       1
 
-#define MSG(args...) syslog(LOG_INFO, args) /* message that is destined to the user */
+#define MSG(args...) printf(args) /* message that is destined to the user */
 #define MSG_DEBUG(FLAG, fmt, ...)                                                                         \
             do  {                                                                                         \
                 if (FLAG)                                                                                 \
