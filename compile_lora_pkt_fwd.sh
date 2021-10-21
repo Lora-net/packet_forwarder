@@ -4,7 +4,7 @@ compile_lora_pkt_fwd_for_spi_bus() {
     spi_bus="$1"
     echo "Compiling upstream lora_pkt_fwd for sx1301 on $spi_bus"
 
-    # lora_pkt_fwd Makefile expects lora_gateway to be to levels up
+    # lora_pkt_fwd Makefile expects lora_gateway to be two levels up
     rm -rf "$ROOT_DIR/lora_gateway"
     mkdir -p "$ROOT_DIR/lora_gateway"
     cp -r "$LORA_GATEWAY_INPUT_DIR/$spi_bus/" "$ROOT_DIR/lora_gateway/libloragw/"
@@ -13,6 +13,7 @@ compile_lora_pkt_fwd_for_spi_bus() {
     make clean
     make -j 4
 
+    # Copy spi specific build to OUTPUT_DIR
     cp -R "$PACKET_FORWARDER_INPUT_DIR/lora_pkt_fwd/lora_pkt_fwd" "$OUTPUT_DIR/lora_pkt_fwd_$spi_bus"
 
     echo "Finished building lora_pkt_fwd for sx1301 on $spi_bus in $OUTPUT_DIR"
@@ -24,7 +25,7 @@ compile_lora_pkt_fwd() {
     # Built outputs will be copied to this directory
     mkdir -p "$OUTPUT_DIR"
     
-    # In order to be more portable, intentionally not interating over an array
+    # In order to be more portable, intentionally not iterating over an array
     compile_lora_pkt_fwd_for_spi_bus spidev0.0
     compile_lora_pkt_fwd_for_spi_bus spidev0.1
     compile_lora_pkt_fwd_for_spi_bus spidev1.0
